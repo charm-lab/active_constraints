@@ -1,0 +1,11 @@
+<launch>
+
+    <node pkg="active_constraints" type="dvrk_active_constraint" name="dvrk_ac" output="screen">
+        <!--<rosparam command="load" file="$(find active_constraints)/launch/params.yaml" /> -->
+        <param  name="slave_1_name" value="PSM2"/>
+        <param  name="master_1_name" value="MTMR"/>
+        <param name="node_frequency" value="100"/>
+
+        </node>
+
+</launch>

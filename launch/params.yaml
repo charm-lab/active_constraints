@@ -1,0 +1,4 @@
+node_frequency: 100
+tool_1_pose_current_topic_name: /dvrk/MTML/position_cartesian_current
+tool_1_twist_current_topic_name: /dvrk/MTML/twist_body_current
+tool_1_wrench_command_topic_name: /dvrk/MTML/set_wrench_body
