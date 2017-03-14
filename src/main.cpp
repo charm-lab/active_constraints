@@ -68,8 +68,6 @@ int main(int argc, char *argv[]) {
     acViscousRedirect ac_visc_redirect(f_max, 70, 0.002);
 
 	KDL::Vector f_out;
-	KDL::Vector p_tool, p_desired, v_msrd;
-
 
 	ros::Rate loop_rate(r.ros_freq);
 
@@ -91,43 +89,27 @@ int main(int argc, char *argv[]) {
 //	r.pub_tool_1_set_state.publish(robot1_state_command);
 
     r.StartTeleop();
-    wrench_body_orientation_absolute.data = 1;
-	r.pub_wrench_body_orientation_absolute.publish(wrench_body_orientation_absolute);
+//    wrench_body_orientation_absolute.data = 1;
+//	r.pub_wrench_body_orientation_absolute.publish(wrench_body_orientation_absolute);
 
 	half_second_sleep.sleep();
 	ros::spinOnce();
 
+
+    KDL::Rotation slave_to_master_tr;
+    slave_to_master_tr.data[0]  = -1;
+    slave_to_master_tr.data[4]  = -1;
+    KDL::Rotation slave_to_master_tr_2;
+    slave_to_master_tr_2.data[0]  = -1;
+    slave_to_master_tr_2.data[4]  = -0.866025404;
+    slave_to_master_tr_2.data[5]  = -0.5;
+    slave_to_master_tr_2.data[7]  = -0.5;
+    slave_to_master_tr_2.data[8]  =  0.866025404;
+
 	bool first_run = true;
 	while(!g_request_shutdown){
 
-		if(first_run){
-//			p_desired[0] = r.slave_1_pose.pose.position.x;
-//			p_desired[1] = r.slave_1_pose.pose.position.y;
-//			p_desired[2] = r.slave_1_pose.pose.position.z;
-            p_desired[0] =  0.08;
-			p_desired[1] = -0.083;
-			p_desired[2] = -0.106;
 
-			ROS_INFO_STREAM(
-					"p_desired[0] = " << p_desired[0] <<
-					"p_desired[1] = " << p_desired[1] <<
-					"p_desired[2] = " << p_desired[2]);
-
-			first_run = false;
-
-		}
-
-
-		v_msrd[0] = r.slave_1_twist.twist.linear.x;
-		v_msrd[1] = r.slave_1_twist.twist.linear.y;
-		v_msrd[2] = r.slave_1_twist.twist.linear.z;
-//		v_msrd[0] = 0.0;
-//		v_msrd[1] = 0.0;
-//		v_msrd[2] = 0.0;
-
-		p_tool[0] = r.slave_1_pose.pose.position.x;
-		p_tool[1] = r.slave_1_pose.pose.position.y;
-		p_tool[2] = r.slave_1_pose.pose.position.z;
 
         if(r.coag_pressed){
 //            if(r.new_coag_event){
@@ -136,15 +118,18 @@ int main(int argc, char *argv[]) {
 //                r.new_coag_event = false;
 //            }
 
-
-            ac_elastic.getForce(f_out, p_tool, p_desired, v_msrd);
+            ac_elastic.getForce(f_out, r.tool_pose_current[0].p, r.tool_pose_desired[0].p, r.slave_1_twist.vel);
+//            std::cout << "curr: " << r.tool_pose_current[0].p << std::endl;
+//            std::cout << "desi: " << r.tool_pose_desired[0].p << std::endl;
+            // take to master frame
+            f_out = slave_to_master_tr_2 *slave_to_master_tr * f_out;
 
             wrench_out.force.x = f_out[0];
             wrench_out.force.y = f_out[1];
             wrench_out.force.z = f_out[2];
-
             if(r.master_1_state == "DVRK_EFFORT_CARTESIAN"){
-                r.pub_master_1_wrench.publish(wrench_out);
+
+                r.publisher_wrench[0].publish(wrench_out);
             }
         }
         else{
@@ -175,12 +160,14 @@ int main(int argc, char *argv[]) {
 	wrench_out.force.y = 0.0;
 	wrench_out.force.z = 0.0;
     ROS_INFO("Setting zero forces...");
-    r.pub_master_1_wrench.publish(wrench_out);
+    r.publisher_wrench[0].publish(wrench_out);
 
 //	robot1_state_command.data = "DVRK_READY";
 //	ROS_INFO("Setting robot state to DVRK_GRAVITY_COMPENSATION");
 //	r.pub_tool_1_set_state.publish(robot1_state_command);
 	loop_rate.sleep();
+    std_msgs::Empty empty;
+    r.pub_dvrk_power_off.publish(empty);
 
 	ROS_INFO("Ending Session...\n");
 	ros::shutdown();

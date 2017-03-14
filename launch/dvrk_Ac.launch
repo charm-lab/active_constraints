@@ -1,11 +1,28 @@
 <launch>
+    <arg name="Slave1Name" value="PSM2"/>
+    <arg name="Slave2Name" value="PSM1"/>
+    <arg name="Master1Name" value="MTMR"/>
+    <arg name="Master2Name" value="MTML"/>
+    <rosparam command="load" file="$(find active_constraints)/launch/params.yaml" />
 
-    <node pkg="active_constraints" type="dvrk_active_constraint" name="dvrk_ac" output="screen">
-        <!--<rosparam command="load" file="$(find active_constraints)/launch/params.yaml" /> -->
-        <param  name="slave_1_name" value="PSM2"/>
-        <param  name="master_1_name" value="MTMR"/>
+
+    <node pkg="active_constraints" type="dvrk_active_constraint_geomerty_generation" name="dvrk_ac_geom" output="screen">
+        <param name="number_of_arms" value="1"/>
+        <param name="slave_1_name" value="$(arg Slave1Name)"/>
+        <param name="slave_2_name" value="$(arg Slave2Name)"/>
+        <param name="master_1_name" value="$(arg Master1Name)"/>
+        <param name="master_2_name" value="$(arg Master2Name)"/>
         <param name="node_frequency" value="100"/>
 
-        </node>
+    </node>
+
+    <node pkg="active_constraints" type="dvrk_active_constraint_enforcement" name="dvrk_ac_enforce" output="screen">
+        <param name="slave_1_name" value="$(arg Slave1Name)"/>
+        <param name="slave_2_name" value="$(arg Slave2Name)"/>
+        <param name="master_1_name" value="$(arg Master1Name)"/>
+        <param name="master_2_name" value="$(arg Master2Name)"/>
+        <param name="node_frequency" value="100"/>
+
+    </node>
 
 </launch>

@@ -7,10 +7,11 @@ set(CMAKE_CXX_STANDARD 11)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-  roscpp
-  rospy
-  std_msgs
-)
+        roscpp
+        rospy
+        std_msgs
+        tf_conversions
+        )
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -46,10 +47,10 @@ find_package(catkin REQUIRED COMPONENTS
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES active_constraints
-#  CATKIN_DEPENDS roscpp rospy std_msgs
-#  DEPENDS system_lib
+        #  INCLUDE_DIRS include
+        #  LIBRARIES active_constraints
+        #  CATKIN_DEPENDS roscpp rospy std_msgs
+        #  DEPENDS system_lib
 )
 
 ###########
@@ -60,26 +61,35 @@ catkin_package(
 ## Your package locations should be listed before other locations
 # include_directories(include)
 include_directories(
-  ${catkin_INCLUDE_DIRS}
+        ${catkin_INCLUDE_DIRS}
 )
 
 add_library(
-	ACLib
+        ACEnforceLib
         src/ActiveConstraintEnforcement.cpp
         src/ActiveConstraintsROS.cpp
         ${catkin_LIBRARIES}
-        )
+)
 #target_link_libraries(arucoUtils ${OpenCV_LIBRARIES})
 
 add_executable(
-	dvrk_active_constraint
+        dvrk_active_constraint_enforcement
         src/main.cpp)
 target_link_libraries(
-	dvrk_active_constraint        
-	ACLib
-	${catkin_LIBRARIES}	)
+        dvrk_active_constraint_enforcement
+        ACEnforceLib
+        ${catkin_LIBRARIES}	)
 
 
+
+add_executable(
+        dvrk_active_constraint_geomerty_generation
+        src/main_ac_geometry_generation.cpp
+        src/ACGeometryGeneration.cpp
+        src/ACGeometryGeneration.h)
+target_link_libraries(
+        dvrk_active_constraint_geomerty_generation
+        ${catkin_LIBRARIES}	)
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries

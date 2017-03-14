@@ -1,4 +1,4 @@
-node_frequency: 100
-tool_1_pose_current_topic_name: /dvrk/MTML/position_cartesian_current
-tool_1_twist_current_topic_name: /dvrk/MTML/twist_body_current
-tool_1_wrench_command_topic_name: /dvrk/MTML/set_wrench_body
+PSM1_task_space_to_RCM_tr: [-0.058605875819921494, 0.030694810673594475, -0.15846331417560577,
+                                 0.6413271101970369, 0.09403254079962302, 0.6955475173678014, 0.3099533679707319]
+
+PSM2_task_space_to_RCM_tr: [-0.0, 0.0, -0.0, 0.0, 0.0, 0.0, 1.0]
