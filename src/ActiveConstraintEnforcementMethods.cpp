@@ -43,7 +43,7 @@
 
 //------------------------------------------------------------------------------
 
-#include "ActiveConstraintEnforcement.hpp"
+#include "ActiveConstraintEnforcementMethods.hpp"
 
 using namespace toolbox;
 

@@ -1,11 +1,11 @@
 
 #include <iostream>
-#include "ActiveConstraintEnforcement.hpp"
+#include "ActiveConstraintEnforcementMethods.hpp"
 
 #include <ros/ros.h>
 #include <std_msgs/String.h>
 #include <std_msgs/Bool.h>
-#include "ActiveConstraintsROS.hpp"
+#include "ACEnforcement.hpp"
 #include <ros/xmlrpc_manager.h>
 #include <signal.h>
 
@@ -51,7 +51,7 @@ int main(int argc, char *argv[]) {
     ros::XMLRPCManager::instance()->unbind("shutdown");
     ros::XMLRPCManager::instance()->bind("shutdown", shutdownCallback);
 
-	ActiveConstraintsROS r(ros::this_node::getName());
+	ACEnforcement r(ros::this_node::getName());
 
 	geometry_msgs::Wrench wrench_out;
 	std_msgs::String robot1_state_command;
@@ -59,9 +59,9 @@ int main(int argc, char *argv[]) {
 
 	////////////////////////////
 
-	double f_max = 4.0;
+	double f_max = 4.00;
 	double k_coeff = 500;
-	double b_coeff = 20;
+	double b_coeff = 50;
 
 	acElastic ac_elastic( f_max,  k_coeff,  b_coeff,  0.01);
     acPlastRedirect ac_plast_redirect(f_max, 0.005, 0.002);
@@ -89,16 +89,16 @@ int main(int argc, char *argv[]) {
 //	r.pub_tool_1_set_state.publish(robot1_state_command);
 
     r.StartTeleop();
-//    wrench_body_orientation_absolute.data = 1;
-//	r.pub_wrench_body_orientation_absolute.publish(wrench_body_orientation_absolute);
+    wrench_body_orientation_absolute.data = 1;
+	r.publisher_wrench_body_orientation_absolute->publish(wrench_body_orientation_absolute);
 
 	half_second_sleep.sleep();
 	ros::spinOnce();
 
 
     KDL::Rotation slave_to_master_tr;
-    slave_to_master_tr.data[0]  = -1;
     slave_to_master_tr.data[4]  = -1;
+    slave_to_master_tr.data[8]  = -1;
     KDL::Rotation slave_to_master_tr_2;
     slave_to_master_tr_2.data[0]  = -1;
     slave_to_master_tr_2.data[4]  = -0.866025404;
@@ -118,11 +118,12 @@ int main(int argc, char *argv[]) {
 //                r.new_coag_event = false;
 //            }
 
-            ac_elastic.getForce(f_out, r.tool_pose_current[0].p, r.tool_pose_desired[0].p, r.slave_1_twist.vel);
+            ac_elastic.getForce(f_out, r.tool_pose_current[0].p, r.tool_pose_desired[0].p, r.tool_twist[0].vel);
 //            std::cout << "curr: " << r.tool_pose_current[0].p << std::endl;
-//            std::cout << "desi: " << r.tool_pose_desired[0].p << std::endl;
+//           std::cout << "desi: " << r.tool_pose_desired[0].p << std::endl;
             // take to master frame
-            f_out = slave_to_master_tr_2 *slave_to_master_tr * f_out;
+            //f_out = slave_to_master_tr_2.Inverse() * f_out;
+
 
             wrench_out.force.x = f_out[0];
             wrench_out.force.y = f_out[1];

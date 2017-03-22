@@ -66,15 +66,15 @@ include_directories(
 
 add_library(
         ACEnforceLib
-        src/ActiveConstraintEnforcement.cpp
-        src/ActiveConstraintsROS.cpp
+        src/ActiveConstraintEnforcementMethods.cpp
+        src/ACEnforcement.cpp
         ${catkin_LIBRARIES}
 )
 #target_link_libraries(arucoUtils ${OpenCV_LIBRARIES})
 
 add_executable(
         dvrk_active_constraint_enforcement
-        src/main.cpp)
+        src/main_ac_enforcement.cpp)
 target_link_libraries(
         dvrk_active_constraint_enforcement
         ACEnforceLib

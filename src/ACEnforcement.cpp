@@ -6,24 +6,24 @@
  */
 
 
-#include "ActiveConstraintsROS.hpp"
+#include "ACEnforcement.hpp"
 
 
-ActiveConstraintsROS::ActiveConstraintsROS(std::string node_name)
+ACEnforcement::ACEnforcement(std::string node_name)
         : n(node_name), coag_pressed(false)
 {
 
     // assign the callback functions
-    tool_pose_current_callbacks[0] = &ActiveConstraintsROS::Tool1PoseCurrentCallback;
-    tool_pose_current_callbacks[1] = &ActiveConstraintsROS::Tool2PoseCurrentCallback;
-    tool_pose_desired_callbacks[0] = &ActiveConstraintsROS::Tool1PoseDesiredCallback;
-    tool_pose_desired_callbacks[1] = &ActiveConstraintsROS::Tool2PoseDesiredCallback;
+    tool_pose_current_callbacks[0] = &ACEnforcement::Tool1PoseCurrentCallback;
+    tool_pose_current_callbacks[1] = &ACEnforcement::Tool2PoseCurrentCallback;
+    tool_pose_desired_callbacks[0] = &ACEnforcement::Tool1PoseDesiredCallback;
+    tool_pose_desired_callbacks[1] = &ACEnforcement::Tool2PoseDesiredCallback;
 
-    master_state_callback[0] = &ActiveConstraintsROS::Master1StateCallback;
-    master_state_callback[1] = &ActiveConstraintsROS::Master2StateCallback;
+    master_state_callback[0] = &ACEnforcement::Master1StateCallback;
+    master_state_callback[1] = &ACEnforcement::Master2StateCallback;
 
-    tool_twist_callback[0] = &ActiveConstraintsROS::Tool1TwistCallback;
-    tool_twist_callback[1] = &ActiveConstraintsROS::Tool2TwistCallback;
+    tool_twist_callback[0] = &ACEnforcement::Tool1TwistCallback;
+    tool_twist_callback[1] = &ACEnforcement::Tool2TwistCallback;
     SetupROSCommunications();
 }
 
@@ -33,7 +33,7 @@ ActiveConstraintsROS::ActiveConstraintsROS(std::string node_name)
 // SetupROSCommunications
 //-----------------------------------------------------------------------------------
 
-void ActiveConstraintsROS::SetupROSCommunications() {
+void ACEnforcement::SetupROSCommunications() {
 
     // all the parameters have default values.
 
@@ -130,13 +130,13 @@ void ActiveConstraintsROS::SetupROSCommunications() {
 //
 //    // register MTMR pose subscriber
 //    subscriber_master_1_state = n.subscribe(master_1_state_current_topic_name, 1,
-//                                          &ActiveConstraintsROS::Master1StateCallback, this);
+//                                          &ACEnforcement::Master1StateCallback, this);
 
 
 
     // common subscriber and publishers
     subscriber_foot_pedal_clutch = n.subscribe("/dvrk/footpedals/coag", 1,
-                                               &ActiveConstraintsROS::FootPedalCoagCallback, this);
+                                               &ACEnforcement::FootPedalCoagCallback, this);
     ROS_INFO("%s: Will subscribe to /dvrk/footpedals/coag",  ros::this_node::getName().c_str());
 
     pub_dvrk_console_teleop_enable = n.advertise<std_msgs::Bool>("/dvrk/console/teleop/enable", 1);
@@ -149,61 +149,61 @@ void ActiveConstraintsROS::SetupROSCommunications() {
 }
 
 
-void ActiveConstraintsROS::Tool1PoseCurrentCallback(
+void ACEnforcement::Tool1PoseCurrentCallback(
         const geometry_msgs::PoseStamped::ConstPtr &msg) {
 
     tf::poseMsgToKDL(msg->pose, tool_pose_current[0]);
 }
 
-void ActiveConstraintsROS::Tool2PoseCurrentCallback(
+void ACEnforcement::Tool2PoseCurrentCallback(
         const geometry_msgs::PoseStamped::ConstPtr &msg) {
 
     tf::poseMsgToKDL(msg->pose, tool_pose_current[1]);
 }
 
 
-void ActiveConstraintsROS::Tool1PoseDesiredCallback(
+void ACEnforcement::Tool1PoseDesiredCallback(
         const geometry_msgs::PoseStamped::ConstPtr &msg) {
     tf::poseMsgToKDL(msg->pose, tool_pose_desired[0]);
 }
 
-void ActiveConstraintsROS::Tool2PoseDesiredCallback(
+void ACEnforcement::Tool2PoseDesiredCallback(
         const geometry_msgs::PoseStamped::ConstPtr &msg) {
     tf::poseMsgToKDL(msg->pose, tool_pose_desired[1]);
 
 }
 
-void ActiveConstraintsROS::Tool1TwistCallback(
+void ACEnforcement::Tool1TwistCallback(
         const geometry_msgs::TwistStamped::ConstPtr &msg) {
 
-    tf::twistMsgToKDL(msg->twist, slave_2_twist);
+    tf::twistMsgToKDL(msg->twist, tool_twist[0]);
 
 }
 
-void ActiveConstraintsROS::Tool2TwistCallback(
+void ACEnforcement::Tool2TwistCallback(
         const geometry_msgs::TwistStamped::ConstPtr &msg) {
 
-    tf::twistMsgToKDL(msg->twist, slave_2_twist);
+    tf::twistMsgToKDL(msg->twist, tool_twist[1]);
 }
 
-void ActiveConstraintsROS::Master1StateCallback(
+void ACEnforcement::Master1StateCallback(
         const std_msgs::StringConstPtr &msg) {
     master_1_state  = msg->data;
 }
 
-void ActiveConstraintsROS::Master2StateCallback(
+void ACEnforcement::Master2StateCallback(
         const std_msgs::StringConstPtr &msg) {
     master_2_state  = msg->data;
 }
 
-void ActiveConstraintsROS::FootPedalCoagCallback(const sensor_msgs::Joy & msg){
+void ACEnforcement::FootPedalCoagCallback(const sensor_msgs::Joy & msg){
 
     coag_pressed = (bool)msg.buttons[0];
     new_coag_event = true;
 
 }
 
-void ActiveConstraintsROS::StartTeleop() {
+void ACEnforcement::StartTeleop() {
     // first send the arms to home
     std_msgs::Empty empty;
     pub_dvrk_home.publish(empty);

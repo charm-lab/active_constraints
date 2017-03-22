@@ -18,18 +18,17 @@
 #include <sensor_msgs/Joy.h>
 #include <kdl/frames.hpp>
 #include <tf_conversions/tf_kdl.h>
-class ActiveConstraintsROS {
+class ACEnforcement {
 
 public:
-	ActiveConstraintsROS(std::string node_name);
+	ACEnforcement(std::string node_name);
     void StartTeleop();
 public:
 	double ros_freq;
 	int n_arms;
     KDL::Frame tool_pose_current[2];
     KDL::Frame tool_pose_desired[2];
-    KDL::Twist slave_1_twist;
-    KDL::Twist slave_2_twist;
+    KDL::Twist tool_twist[2];
 
     std::string master_1_state;
     std::string master_2_state;
@@ -75,19 +74,19 @@ private:
 
 
     // two function pointers for slave pose current callbacks
-	void (ActiveConstraintsROS::*tool_pose_current_callbacks[2])
+	void (ACEnforcement::*tool_pose_current_callbacks[2])
 			(const geometry_msgs::PoseStamped::ConstPtr &msg);
 
     // two function pointers for slave pose desired callbacks
-    void (ActiveConstraintsROS::*tool_pose_desired_callbacks[2])
+    void (ACEnforcement::*tool_pose_desired_callbacks[2])
             (const geometry_msgs::PoseStamped::ConstPtr &msg);
 
 	// two function pointers for slave twist callbacks
-	void (ActiveConstraintsROS::*tool_twist_callback[2])
+	void (ACEnforcement::*tool_twist_callback[2])
 			(const geometry_msgs::TwistStamped::ConstPtr &msg);
 
     // two function pointers for master state callbacks
-    void (ActiveConstraintsROS::*master_state_callback[2])
+    void (ACEnforcement::*master_state_callback[2])
             (const std_msgs::StringConstPtr &msg);
 
 private:

@@ -4,7 +4,7 @@
 
 
 #include <iostream>
-#include "ActiveConstraintEnforcement.hpp"
+#include "ActiveConstraintEnforcementMethods.hpp"
 
 #include <ros/ros.h>
 #include <std_msgs/String.h>
@@ -33,13 +33,18 @@ int main(int argc, char *argv[]) {
 
     while(ros::ok()){
 
-//        if(first_run){
-//            r.tool_pose_desired[0] =  r.tool_pose_current[0];
-//            ROS_INFO_STREAM(std::string("p_desired[0] = ") << r.tool_pose_current[0].p);
-//            first_run = false;
-//        }
+        if(first_run){
+            r.tool_pose_desired[0] =  r.tool_pose_current[0];
 
-        r.ClosestPointToACPoints(r.tool_pose_current->p, ac_path, r.tool_pose_desired->p);
+  //           r.tool_pose_desired[0].p[0] =  -0.148796232892;
+  //          r.tool_pose_desired[0].p[1] =  -0.0103239386941;
+  //           r.tool_pose_desired[0].p[2] =  -0.2331;
+
+            ROS_INFO_STREAM(std::string("p_desired[0] = ") << r.tool_pose_desired[0].p);
+            first_run = false;
+        }
+
+   //     r.ClosestPointToACPoints(r.tool_pose_current->p, ac_path, r.tool_pose_desired->p);
 
         r.PublishCurrentPose();
 
