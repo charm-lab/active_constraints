@@ -25,7 +25,7 @@ int main(int argc, char *argv[]) {
     one_second_sleep.sleep();
 
     geometry_msgs::PoseArray ac_path;
-    r.GenerateXYCircle(KDL::Vector(0.0, 0.0, 0.0), 0.1, 50, ac_path);
+    r.GenerateXYCircle(KDL::Vector(0.045, 0.03, 0.0), 0.025, 200, ac_path);
 
     r.publisher_ac_path.publish(ac_path);
 
@@ -33,18 +33,18 @@ int main(int argc, char *argv[]) {
 
     while(ros::ok()){
 
-        if(first_run){
-            r.tool_pose_desired[0] =  r.tool_pose_current[0];
+//        if(first_run){
+//            r.tool_pose_desired[0] =  r.tool_pose_current[0];
+//
+//  //           r.tool_pose_desired[0].p[0] =  -0.148796232892;
+//  //          r.tool_pose_desired[0].p[1] =  -0.0103239386941;
+//  //           r.tool_pose_desired[0].p[2] =  -0.2331;
+//
+//            ROS_INFO_STREAM(std::string("p_desired[0] = ") << r.tool_pose_desired[0].p);
+//            first_run = false;
+//        }
 
-  //           r.tool_pose_desired[0].p[0] =  -0.148796232892;
-  //          r.tool_pose_desired[0].p[1] =  -0.0103239386941;
-  //           r.tool_pose_desired[0].p[2] =  -0.2331;
-
-            ROS_INFO_STREAM(std::string("p_desired[0] = ") << r.tool_pose_desired[0].p);
-            first_run = false;
-        }
-
-   //     r.ClosestPointToACPoints(r.tool_pose_current->p, ac_path, r.tool_pose_desired->p);
+        r.ClosestPointToACPoints(r.tool_pose_current[0].p, ac_path, r.tool_pose_desired[0].p);
 
         r.PublishCurrentPose();
 

@@ -53,15 +53,14 @@ int main(int argc, char *argv[]) {
 
 	ACEnforcement r(ros::this_node::getName());
 
-	geometry_msgs::Wrench wrench_out;
 	std_msgs::String robot1_state_command;
 	std_msgs::Bool wrench_body_orientation_absolute;
 
 	////////////////////////////
 
 	double f_max = 4.00;
-	double k_coeff = 500;
-	double b_coeff = 50;
+	double k_coeff = 200;
+	double b_coeff = 10;
 
 	acElastic ac_elastic( f_max,  k_coeff,  b_coeff,  0.01);
     acPlastRedirect ac_plast_redirect(f_max, 0.005, 0.002);
@@ -125,12 +124,9 @@ int main(int argc, char *argv[]) {
             //f_out = slave_to_master_tr_2.Inverse() * f_out;
 
 
-            wrench_out.force.x = f_out[0];
-            wrench_out.force.y = f_out[1];
-            wrench_out.force.z = f_out[2];
             if(r.master_1_state == "DVRK_EFFORT_CARTESIAN"){
+                r.PublishWrenchInSlaveFrame(0, f_out);
 
-                r.publisher_wrench[0].publish(wrench_out);
             }
         }
         else{
@@ -157,11 +153,9 @@ int main(int argc, char *argv[]) {
 
 	loop_rate.sleep();
 
-	wrench_out.force.x = 0.0;
-	wrench_out.force.y = 0.0;
-	wrench_out.force.z = 0.0;
+    r.PublishWrenchInSlaveFrame(0, KDL::Vector(0.0, 0.0, 0.0));
+
     ROS_INFO("Setting zero forces...");
-    r.publisher_wrench[0].publish(wrench_out);
 
 //	robot1_state_command.data = "DVRK_READY";
 //	ROS_INFO("Setting robot state to DVRK_GRAVITY_COMPENSATION");

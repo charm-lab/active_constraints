@@ -24,6 +24,7 @@ public:
 	ACEnforcement(std::string node_name);
     void StartTeleop();
 public:
+    // Tool poses are all in task coordinate frame
 	double ros_freq;
 	int n_arms;
     KDL::Frame tool_pose_current[2];
@@ -44,6 +45,7 @@ public:
 	ros::Publisher *publisher_wrench;
     ros::Publisher *publisher_wrench_body_orientation_absolute;
 
+    void PublishWrenchInSlaveFrame(const int num_arm, const KDL::Vector f_in);
 
 private:
 
@@ -99,13 +101,22 @@ private:
 
     ros::Subscriber subscriber_foot_pedal_clutch;
 
+    // RCM_to_task_space_tr used to take the generated forces to slave ref rame
+    KDL::Frame RCM_to_task_space_tr[2];
+
 
 };
 
+namespace conversions{
+
+    void VectorToKDLFrame(const std::vector<double> &in_vec, KDL::Frame &out_pose);
+    void VectorToPoseMsg(const std::vector<double> in_vec,
+                         geometry_msgs::Pose &out_pose);
+
+};
 // operator overload to print out vectors
 std::ostream& operator<<(std::ostream& out, const std::vector<double>& vect);
 std::ostream& operator<<(std::ostream& out, const KDL::Vector& vec);
-
 
 
 #endif /* SRC_ACTIVECONSTRAINTSROS_HPP_ */

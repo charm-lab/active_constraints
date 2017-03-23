@@ -7,6 +7,9 @@
 
 
 #include "ACEnforcement.hpp"
+//  including the geometry generation for the conversion functions.
+// will be fixed later.
+#include "ACGeometryGeneration.h"
 
 
 ACEnforcement::ACEnforcement(std::string node_name)
@@ -117,6 +120,22 @@ void ACEnforcement::SetupROSCommunications() {
                                                      master_state_callback[n_arm], this);
         ROS_INFO("%s: Will subscribe to %s",  ros::this_node::getName().c_str(),
                  param_name.str().c_str());
+
+
+        // the transformation from the coordinate frame of the slave (RCM) to the task coordinate
+        // frame.
+        param_name.str("");
+        param_name << (std::string)"/" << slave_names[n_arm] << "_task_space_to_RCM_tr";
+        std::vector<double> vect_temp = std::vector<double>(7, 0.0);
+        if(n.getParam(param_name.str(), vect_temp)){
+            conversions::VectorToKDLFrame(vect_temp, RCM_to_task_space_tr[n_arm]);
+            // param is from task to RCM, we want the inverse
+            RCM_to_task_space_tr[n_arm] = RCM_to_task_space_tr[n_arm].Inverse();
+        }
+        else
+            ROS_ERROR("%s: Parameter %s is needed.",  ros::this_node::getName().c_str(),
+                      param_name.str().c_str());
+
     }
 
 
@@ -203,6 +222,21 @@ void ACEnforcement::FootPedalCoagCallback(const sensor_msgs::Joy & msg){
 
 }
 
+void ACEnforcement::PublishWrenchInSlaveFrame(const int num_arm, const KDL::Vector f_in){
+
+    geometry_msgs::Wrench wrench_out;
+    KDL::Vector f_out;
+
+    f_out =  RCM_to_task_space_tr[num_arm].Inverse() * f_in;
+
+    wrench_out.force.x = f_out[0];
+    wrench_out.force.y = f_out[1];
+    wrench_out.force.z = f_out[2];
+
+    publisher_wrench[num_arm].publish(wrench_out);
+
+}
+
 void ACEnforcement::StartTeleop() {
     // first send the arms to home
     std_msgs::Empty empty;
@@ -230,6 +264,27 @@ void ACEnforcement::StartTeleop() {
 
 }
 
+
+
+
+void conversions::VectorToPoseMsg(const std::vector<double> in_vec,
+                                  geometry_msgs::Pose &out_pose) {
+
+    out_pose.position.x = in_vec.at(0);
+    out_pose.position.y = in_vec.at(1);
+    out_pose.position.z = in_vec.at(2);
+    out_pose.orientation.x = in_vec.at(3);
+    out_pose.orientation.y = in_vec.at(4);
+    out_pose.orientation.z = in_vec.at(5);
+    out_pose.orientation.w = in_vec.at(6);
+
+}
+
+void conversions::VectorToKDLFrame(const std::vector<double> &in_vec, KDL::Frame &out_pose) {
+    geometry_msgs::Pose pose_msg;
+    conversions::VectorToPoseMsg(in_vec, pose_msg);
+    tf::poseMsgToKDL(pose_msg, out_pose);
+}
 
 
 // operator overload to print out vectors

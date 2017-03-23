@@ -29,7 +29,6 @@ ACGeometryGeneration::ACGeometryGeneration(std::string node_name)
 
 void ACGeometryGeneration::SetupROSCommunications() {
 
-    bool all_required_params_found = true;
 
     // all the parameters have default values.
 
@@ -106,7 +105,7 @@ void ACGeometryGeneration::SetupROSCommunications() {
         // the transformation from the coordinate frame of the slave (RCM) to the task coordinate
         // frame.
         param_name.str("");
-        param_name << (std::string)"/" << slave_names[n_arm] << "_task_space_to_RCM_tr";
+        param_name << (std::string)"/taskspace_to_" << slave_names[n_arm] << "_tr";
         std::vector<double> vect_temp = std::vector<double>(7, 0.0);
         if(n.getParam(param_name.str(), vect_temp)){
             conversions::VectorToKDLFrame(vect_temp, RCM_to_task_space_tr[n_arm]);
@@ -132,7 +131,7 @@ void ACGeometryGeneration::SetupROSCommunications() {
     // wait here till data is available.
     // the dvrk published zero values during the homing, so just checking the availability of the
     // messages is not enough.
-    ros::Rate half_second_sleep(2);
+    ros::Rate half_second_sleep(1);
     while(tool_pose_current[0].p.Norm() == 0.0 ){
         ROS_INFO("%s: Got zero data on %s.",
                  ros::this_node::getName().c_str(),
@@ -209,7 +208,7 @@ void ACGeometryGeneration::GenerateXYCircle(const KDL::Vector center, const doub
         point.position.z = center[2];
 
         point.position.x = center[0] + radius * cos(angle);
-        point.position.y = center[0] + radius * sin(angle);
+        point.position.y = center[1] + radius * sin(angle);
 
         ac_path.poses.push_back(point);
     }
