@@ -68,7 +68,11 @@ int main(int argc, char *argv[]) {
 
 	KDL::Vector f_out;
 
-	ros::Rate loop_rate(r.ros_freq);
+    // the forces are published only when new desired poses are arrived.
+    // so the frequency of the published forces is equal to the frequency
+    // of the desired pose topic
+    // loop_rate is the frequency of spinning and checking for new messages
+    ros::Rate loop_rate(200);
 
 	ros::Rate half_second_sleep(1);
     half_second_sleep.sleep();
@@ -109,36 +113,19 @@ int main(int argc, char *argv[]) {
 	while(!g_request_shutdown){
 
 
-
-        if(r.coag_pressed){
-//            if(r.new_coag_event){
-//                robot1_state_command.data = "DVRK_EFFORT_CARTESIAN";
-//                ROS_INFO("Setting robot state to %s", robot1_state_command.data.c_str());
-//                r.new_coag_event = false;
-//            }
-
-            ac_elastic.getForce(f_out, r.tool_pose_current[0].p, r.tool_pose_desired[0].p, r.tool_twist[0].vel);
-//            std::cout << "curr: " << r.tool_pose_current[0].p << std::endl;
-//           std::cout << "desi: " << r.tool_pose_desired[0].p << std::endl;
-            // take to master frame
-            //f_out = slave_to_master_tr_2.Inverse() * f_out;
-
-
-            if(r.master_1_state == "DVRK_EFFORT_CARTESIAN"){
-                r.PublishWrenchInSlaveFrame(0, f_out);
-
+        if(r.new_desired_pose_msg[0]) {
+            r.new_desired_pose_msg[0] = false;
+            if (r.coag_pressed) {
+                ac_elastic.getForce(f_out, r.tool_pose_current[0].p, r.tool_pose_desired[0].p, r.tool_twist[0].vel);
+            } else {
+                KDL::SetToZero(f_out);
             }
-        }
-        else{
-//            if(r.new_coag_event){
-//                robot1_state_command.data = "DVRK_EFFORT_CARTESIAN";
-//                ROS_INFO("Setting robot state to %s", robot1_state_command.data.c_str());
-//                r.new_coag_event = false;
-//            }
-            KDL::SetToZero(f_out);
-        }
 
+            if (r.master_1_state == "DVRK_EFFORT_CARTESIAN") {
+                r.PublishWrenchInSlaveFrame(0, f_out);
+            }
 
+        }
 
 
 		//r.pub_wrench_body_orientation_absolute.publish(wrench_body_orientation_absolute);

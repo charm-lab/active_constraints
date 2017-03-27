@@ -25,7 +25,8 @@ public:
     void StartTeleop();
 public:
     // Tool poses are all in task coordinate frame
-	double ros_freq;
+	//double ros_freq;
+	bool new_desired_pose_msg[2];
 	int n_arms;
     KDL::Frame tool_pose_current[2];
     KDL::Frame tool_pose_desired[2];

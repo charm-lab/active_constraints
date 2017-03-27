@@ -12,6 +12,7 @@
 #include "ACGeometryGeneration.h"
 
 
+// THIS NODE WILL PROBABLY NOT BE NEEDED ANYMORE IN NEAR FUTURE
 
 int main(int argc, char *argv[]) {
 
@@ -24,10 +25,9 @@ int main(int argc, char *argv[]) {
     ros::Rate one_second_sleep(1);
     one_second_sleep.sleep();
 
-    geometry_msgs::PoseArray ac_path;
-    r.GenerateXYCircle(KDL::Vector(0.045, 0.03, 0.0), 0.025, 200, ac_path);
-
-    r.publisher_ac_path.publish(ac_path);
+//    r.GenerateXYCircle(KDL::Vector(0.045, 0.03, 0.0), 0.025, 200, ac_path);
+//
+//    r.publisher_ac_path.publish(ac_path);
 
     bool first_run = true;
 
@@ -43,12 +43,13 @@ int main(int argc, char *argv[]) {
 //            ROS_INFO_STREAM(std::string("p_desired[0] = ") << r.tool_pose_desired[0].p);
 //            first_run = false;
 //        }
-
-        r.ClosestPointToACPoints(r.tool_pose_current[0].p, ac_path, r.tool_pose_desired[0].p);
+        // publish the desired point only if we have received the ac_path recently
+        if(r.ac_path_received && (ros::Time::now() - r.ac_path_time_stamp) < ros::Duration(0.5) ) {
+            r.ClosestPointToACPoints(r.tool_pose_current[0].p, r.ac_path, r.tool_pose_desired[0].p);
+            r.PublishDesiredPose();
+        }
 
         r.PublishCurrentPose();
-
-        r.PublishDesiredPose();
 
         r.PublishCurrentTwist();
 

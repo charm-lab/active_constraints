@@ -121,10 +121,15 @@ void ACGeometryGeneration::SetupROSCommunications() {
 
     //ac geom
 
+//    std::string topic_name = "/ac_path";
+//    publisher_ac_path = n.advertise<geometry_msgs::PoseArray>(
+//            topic_name, 1 );
+//    ROS_INFO("%s: Will publish on %s", ros::this_node::getName().c_str(),
+//             topic_name.c_str());
+
     std::string topic_name = "/ac_path";
-    publisher_ac_path = n.advertise<geometry_msgs::PoseArray>(
-            topic_name, 1 );
-    ROS_INFO("%s: Will publish on %s", ros::this_node::getName().c_str(),
+    subscriber_ac_path = n.subscribe("/ac_path", 1, &ACGeometryGeneration::ACPathCallback, this);
+    ROS_INFO("%s: Will Subscribe to %s", ros::this_node::getName().c_str(),
              topic_name.c_str());
 
 
@@ -198,6 +203,14 @@ void ACGeometryGeneration::PublishDesiredPose() {
     }
 }
 
+void ACGeometryGeneration::ACPathCallback(const geometry_msgs::PoseArrayConstPtr & msg){
+
+    for (int n_point = 0; n_point < msg->poses.size(); ++n_point) {
+        ac_path.poses.push_back(msg->poses[n_point]);
+    }
+    ac_path_received = true;
+    ac_path_time_stamp = msg->header.stamp;
+}
 
 void ACGeometryGeneration::GenerateXYCircle(const KDL::Vector center, const double radius, const int num_points,
                      geometry_msgs::PoseArray & ac_path){
@@ -206,7 +219,6 @@ void ACGeometryGeneration::GenerateXYCircle(const KDL::Vector center, const doub
 
         double angle = 2* M_PI*(double)n_point / (double)(num_points);
         point.position.z = center[2];
-
         point.position.x = center[0] + radius * cos(angle);
         point.position.y = center[1] + radius * sin(angle);
 

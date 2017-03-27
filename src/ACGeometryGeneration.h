@@ -34,12 +34,15 @@ public:
 
     double ros_freq;
     int n_arms;
+    geometry_msgs::PoseArray ac_path;
+    bool ac_path_received =0 ;
+    ros::Time ac_path_time_stamp;
 
     KDL::Frame tool_pose_current[2];
     KDL::Frame tool_pose_desired[2];
     KDL::Twist tool_twist_current[2];
 
-    ros::Publisher publisher_ac_path;
+    //ros::Publisher publisher_ac_path;
 
     void ClosestPointToACPoints(const KDL::Vector tool_current_position,
                                 const geometry_msgs::PoseArray & ac_path,
@@ -59,7 +62,7 @@ private:
 
     void Tool2TwistCallback(const geometry_msgs::TwistStamped::ConstPtr &msg);
 
-
+    void ACPathCallback(const geometry_msgs::PoseArrayConstPtr & msg);
 
 
         // two function pointers for slave pose callbacks
@@ -83,7 +86,7 @@ private:
 
 
     ros::Subscriber subscriber_foot_pedal_clutch;
-
+    ros::Subscriber subscriber_ac_path;
     KDL::Frame RCM_to_task_space_tr[2];
     
 };

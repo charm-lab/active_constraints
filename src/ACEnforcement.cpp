@@ -27,6 +27,9 @@ ACEnforcement::ACEnforcement(std::string node_name)
 
     tool_twist_callback[0] = &ACEnforcement::Tool1TwistCallback;
     tool_twist_callback[1] = &ACEnforcement::Tool2TwistCallback;
+    new_desired_pose_msg[0] = false;
+    new_desired_pose_msg[1] = false;
+
     SetupROSCommunications();
 }
 
@@ -41,8 +44,8 @@ void ACEnforcement::SetupROSCommunications() {
     // all the parameters have default values.
 
     // Loop frequency
-    n.param<double>("node_frequency", ros_freq, 50);
-    ROS_INFO("%s: Node frequency will be set as '%f'", ros::this_node::getName().c_str(), ros_freq);
+    ROS_INFO("%s: Node frequency depends on the desired pose topic.",
+             ros::this_node::getName().c_str());
 
     n.param<int>("number_of_arms", n_arms, 1);
     ROS_INFO("%s: Expecting '%d' arm(s)", ros::this_node::getName().c_str(), n_arms);
@@ -184,11 +187,13 @@ void ACEnforcement::Tool2PoseCurrentCallback(
 void ACEnforcement::Tool1PoseDesiredCallback(
         const geometry_msgs::PoseStamped::ConstPtr &msg) {
     tf::poseMsgToKDL(msg->pose, tool_pose_desired[0]);
+    new_desired_pose_msg[0] = true;
 }
 
 void ACEnforcement::Tool2PoseDesiredCallback(
         const geometry_msgs::PoseStamped::ConstPtr &msg) {
     tf::poseMsgToKDL(msg->pose, tool_pose_desired[1]);
+    new_desired_pose_msg[1] = true;
 
 }
 
