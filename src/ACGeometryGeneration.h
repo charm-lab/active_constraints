@@ -87,7 +87,7 @@ private:
 
     ros::Subscriber subscriber_foot_pedal_clutch;
     ros::Subscriber subscriber_ac_path;
-    KDL::Frame RCM_to_task_space_tr[2];
+    KDL::Frame slave_frame_to_task_frame[2];
     
 };
 

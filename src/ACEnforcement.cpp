@@ -44,14 +44,13 @@ void ACEnforcement::SetupROSCommunications() {
     // all the parameters have default values.
 
     // Loop frequency
-    ROS_INFO("%s: Node frequency depends on the desired pose topic.",
-             ros::this_node::getName().c_str());
+    ROS_INFO("Node frequency depends on the desired pose topic.");
 
     n.param<int>("number_of_arms", n_arms, 1);
-    ROS_INFO("%s: Expecting '%d' arm(s)", ros::this_node::getName().c_str(), n_arms);
+    ROS_INFO("Expecting '%d' arm(s)", n_arms);
 
     if(n_arms<1)
-        ROS_ERROR("%s: Number of arms must be at least 1.", ros::this_node::getName().c_str());
+        ROS_ERROR("Number of arms must be at least 1.");
 
     // Subscribers and publishers
     publisher_wrench = new ros::Publisher[n_arms];
@@ -65,7 +64,7 @@ void ACEnforcement::SetupROSCommunications() {
     std::string slave_names[n_arms];
     std::string master_names[n_arms];
 
-    for(int n_arm = 0; n_arm<n_arms; n_arm++){
+    for(int n_arm = 0; n_arm<n_arms; n_arm++) {
 
         //getting the name of the arms
         std::stringstream param_name;
@@ -79,69 +78,73 @@ void ACEnforcement::SetupROSCommunications() {
 
         // publishers
         param_name.str("");
-        param_name << std::string("/dvrk/")<< master_names[n_arm] << "/set_wrench_body";
+        param_name << std::string("/dvrk/") << master_names[n_arm]
+                   << "/set_wrench_body";
         publisher_wrench[n_arm] = n.advertise<geometry_msgs::Wrench>(
-                param_name.str().c_str(), 1 );
-        ROS_INFO("%s: Will publish on %s",  ros::this_node::getName().c_str(),
-                 param_name.str().c_str());
+                param_name.str().c_str(), 1);
+        ROS_INFO("Will publish on %s", param_name.str().c_str());
 
 
         param_name.str("");
-        param_name << std::string("/dvrk/")<< master_names[n_arm] << "/set_wrench_body_orientation_absolute";
+        param_name << std::string("/dvrk/") << master_names[n_arm]
+                   << "/set_wrench_body_orientation_absolute";
         publisher_wrench_body_orientation_absolute[n_arm] = n.advertise<std_msgs::Bool>(
-                param_name.str().c_str(), 1 );
-        ROS_INFO("%s: Will publish on %s",  ros::this_node::getName().c_str(),
-                 param_name.str().c_str());
+                param_name.str().c_str(), 1);
+        ROS_INFO("Will publish on %s", param_name.str().c_str());
 
 
         // subscribers
         param_name.str("");
-        param_name << std::string("/")<< slave_names[n_arm] << "/tool_pose_desired";
+        param_name << std::string("/") << slave_names[n_arm]
+                   << "/tool_pose_desired";
         subscriber_tool_pose_desired[n_arm] = n.subscribe(param_name.str(), 1,
-                                                            tool_pose_desired_callbacks[n_arm], this);
-        ROS_INFO("%s: Will subscribe to %s",  ros::this_node::getName().c_str(),
-                 param_name.str().c_str());
+                                                          tool_pose_desired_callbacks[n_arm],
+                                                          this);
+        ROS_INFO("[SUBSCRIBERS] Will subscribe to %s", param_name.str().c_str());
 
         param_name.str("");
-        param_name << std::string("/")<< slave_names[n_arm] << "/tool_pose_current";
+        param_name << std::string("/") << slave_names[n_arm]
+                   << "/tool_pose_current";
         subscriber_tool_pose_current[n_arm] = n.subscribe(param_name.str(), 1,
-                                                            tool_pose_current_callbacks[n_arm], this);
-        ROS_INFO("%s: Will subscribe to %s",  ros::this_node::getName().c_str(),
-                 param_name.str().c_str());
+                                                          tool_pose_current_callbacks[n_arm],
+                                                          this);
+        ROS_INFO("[SUBSCRIBERS] Will subscribe to %s", param_name.str().c_str());
 
 
         param_name.str("");
-        param_name << std::string("/") << slave_names[n_arm] << "/tool_twist_current";
-        subscriber_slaves_current_twist[n_arm] = n.subscribe(param_name.str(), 1,
-                                                             tool_twist_callback[n_arm], this);
-        ROS_INFO("%s: Will subscribe to %s",  ros::this_node::getName().c_str(),
-                 param_name.str().c_str());
+        param_name << std::string("/") << slave_names[n_arm]
+                   << "/tool_twist_current";
+        subscriber_slaves_current_twist[n_arm] = n.subscribe(param_name.str(),
+                                                             1,
+                                                             tool_twist_callback[n_arm],
+                                                             this);
+        ROS_INFO("[SUBSCRIBERS] Will subscribe to %s", param_name.str().c_str());
 
         param_name.str("");
-        param_name << std::string("/dvrk/") << master_names[n_arm] << "/robot_state";
+        param_name << std::string("/dvrk/") << master_names[n_arm]
+                   << "/robot_state";
         subscriber_master_state[n_arm] = n.subscribe(param_name.str(), 1,
-                                                     master_state_callback[n_arm], this);
-        ROS_INFO("%s: Will subscribe to %s",  ros::this_node::getName().c_str(),
-                 param_name.str().c_str());
+                                                     master_state_callback[n_arm],
+                                                     this);
+        ROS_INFO("[SUBSCRIBERS] Will subscribe to %s", param_name.str().c_str());
 
 
         // the transformation from the coordinate frame of the slave (RCM) to the task coordinate
         // frame.
         param_name.str("");
-        param_name << (std::string)"/" << slave_names[n_arm] << "_task_space_to_RCM_tr";
+        param_name << (std::string) "/calibrations/task_frame_to_"
+                   << slave_names[n_arm] << "_frame";
         std::vector<double> vect_temp = std::vector<double>(7, 0.0);
-        if(n.getParam(param_name.str(), vect_temp)){
-            conversions::VectorToKDLFrame(vect_temp, RCM_to_task_space_tr[n_arm]);
-            // param is from task to RCM, we want the inverse
-            RCM_to_task_space_tr[n_arm] = RCM_to_task_space_tr[n_arm].Inverse();
-        }
-        else
-            ROS_ERROR("%s: Parameter %s is needed.",  ros::this_node::getName().c_str(),
-                      param_name.str().c_str());
+        if (n.getParam(param_name.str(), vect_temp)) {
+            conversions::VectorToKDLFrame(vect_temp,
+                                          slave_frame_to_task_frame[n_arm]);
+            // param is from task to slave, we want the inverse
+            slave_frame_to_task_frame[n_arm] = slave_frame_to_task_frame[n_arm].Inverse();
+        } else
+            ROS_ERROR("Parameter %s is needed.", param_name.str().c_str());
+
 
     }
-
-
 
 
 
@@ -159,7 +162,7 @@ void ACEnforcement::SetupROSCommunications() {
     // common subscriber and publishers
     subscriber_foot_pedal_clutch = n.subscribe("/dvrk/footpedals/coag", 1,
                                                &ACEnforcement::FootPedalCoagCallback, this);
-    ROS_INFO("%s: Will subscribe to /dvrk/footpedals/coag",  ros::this_node::getName().c_str());
+    ROS_INFO("[SUBSCRIBERS] Will subscribe to /dvrk/footpedals/coag");
 
     pub_dvrk_console_teleop_enable = n.advertise<std_msgs::Bool>("/dvrk/console/teleop/enable", 1);
 
@@ -232,7 +235,7 @@ void ACEnforcement::PublishWrenchInSlaveFrame(const int num_arm, const KDL::Vect
     geometry_msgs::Wrench wrench_out;
     KDL::Vector f_out;
 
-    f_out =  RCM_to_task_space_tr[num_arm].Inverse() * f_in;
+    f_out =  slave_frame_to_task_frame[num_arm].Inverse() * f_in;
 
     wrench_out.force.x = f_out[0];
     wrench_out.force.y = f_out[1];

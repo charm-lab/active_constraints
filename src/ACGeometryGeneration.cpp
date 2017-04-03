@@ -34,10 +34,10 @@ void ACGeometryGeneration::SetupROSCommunications() {
 
     // Loop frequency
     n.param<double>("node_frequency", ros_freq, 50);
-    ROS_INFO("%s: Node frequency will be set as '%f'", ros::this_node::getName().c_str(), ros_freq);
+    ROS_INFO("Node frequency will be set as '%f'", ros_freq);
 
     n.param<int>("number_of_arms", n_arms, 1);
-    ROS_INFO("%s: Expecting '%d' arm(s)", ros::this_node::getName().c_str(), n_arms);
+    ROS_INFO("Expecting '%d' arm(s)", n_arms);
 
     // Subscribers and publishers
     publisher_tool_pose_current = new ros::Publisher[(uint)n_arms];
@@ -63,7 +63,7 @@ void ACGeometryGeneration::SetupROSCommunications() {
         param_name << std::string("/") << slave_names[n_arm] << "/tool_pose_current";
         publisher_tool_pose_current[n_arm] = n.advertise<geometry_msgs::PoseStamped>(
                 param_name.str().c_str(), 1 );
-        ROS_INFO("%s: Will publish on %s", ros::this_node::getName().c_str(),
+        ROS_INFO("Will publish on %s",
                  param_name.str().c_str());
 
 
@@ -71,23 +71,21 @@ void ACGeometryGeneration::SetupROSCommunications() {
         param_name << std::string("/")<< slave_names[n_arm] << "/tool_pose_desired";
         publisher_tool_pose_desired[n_arm] = n.advertise<geometry_msgs::PoseStamped>(
                 param_name.str().c_str(), 1 );
-        ROS_INFO("%s: Will publish on %s",  ros::this_node::getName().c_str(),
-                 param_name.str().c_str());
+        ROS_INFO("Will publish on %s", param_name.str().c_str());
 
 
         param_name.str("");
         param_name << std::string("/") << slave_names[n_arm] << "/tool_twist_current";
         publisher_tool_twist_current[n_arm] = n.advertise<geometry_msgs::TwistStamped>(
                 param_name.str().c_str(), 1 );
-        ROS_INFO("%s: Will publish on %s", ros::this_node::getName().c_str(),
-                 param_name.str().c_str());
+        ROS_INFO("Will publish on %s", param_name.str().c_str());
 
         // subscribers
         param_name.str("");
         param_name << std::string("/dvrk/") <<slave_names[n_arm] << "/position_cartesian_current";
         subscriber_tool_current_pose[n_arm] = n.subscribe(param_name.str(), 1,
                                                             tool_pose_callbacks[n_arm], this);
-        ROS_INFO("%s: Will subscribe to %s",  ros::this_node::getName().c_str(),
+        ROS_INFO("[SUBSCRIBERS] Will subscribe to %s",
                  param_name.str().c_str());
         // we will later check to see if something is publishing on the current slave pose
         check_topic_name = param_name.str();
@@ -96,8 +94,7 @@ void ACGeometryGeneration::SetupROSCommunications() {
         param_name << std::string("/dvrk/") <<slave_names[n_arm] << "/twist_body_current";
         subscriber_tool_current_twist[n_arm] = n.subscribe(param_name.str(), 1,
                                                             tool_twist_callbacks[n_arm], this);
-        ROS_INFO("%s: Will subscribe to %s",  ros::this_node::getName().c_str(),
-                 param_name.str().c_str());
+        ROS_INFO("[SUBSCRIBERS] Will subscribe to %s", param_name.str().c_str());
 
 
         // other parameters
@@ -105,16 +102,15 @@ void ACGeometryGeneration::SetupROSCommunications() {
         // the transformation from the coordinate frame of the slave (RCM) to the task coordinate
         // frame.
         param_name.str("");
-        param_name << (std::string)"/taskspace_to_" << slave_names[n_arm] << "_tr";
+        param_name << (std::string)"/calibrations/task_frame_to_" << slave_names[n_arm] << "_frame";
         std::vector<double> vect_temp = std::vector<double>(7, 0.0);
         if(n.getParam(param_name.str(), vect_temp)){
-            conversions::VectorToKDLFrame(vect_temp, RCM_to_task_space_tr[n_arm]);
+            conversions::VectorToKDLFrame(vect_temp, slave_frame_to_task_frame[n_arm]);
             // param is from task to RCM, we want the inverse
-            RCM_to_task_space_tr[n_arm] = RCM_to_task_space_tr[n_arm].Inverse();
+            slave_frame_to_task_frame[n_arm] = slave_frame_to_task_frame[n_arm].Inverse();
         }
         else
-            ROS_ERROR("%s: Parameter %s is needed.",  ros::this_node::getName().c_str(),
-                     param_name.str().c_str());
+            ROS_ERROR("Parameter %s is needed.", param_name.str().c_str());
 
 
     }
@@ -124,12 +120,12 @@ void ACGeometryGeneration::SetupROSCommunications() {
 //    std::string topic_name = "/ac_path";
 //    publisher_ac_path = n.advertise<geometry_msgs::PoseArray>(
 //            topic_name, 1 );
-//    ROS_INFO("%s: Will publish on %s", ros::this_node::getName().c_str(),
+//    ROS_INFO("Will publish on %s",
 //             topic_name.c_str());
 
     std::string topic_name = "/ac_path";
     subscriber_ac_path = n.subscribe("/ac_path", 1, &ACGeometryGeneration::ACPathCallback, this);
-    ROS_INFO("%s: Will Subscribe to %s", ros::this_node::getName().c_str(),
+    ROS_INFO("[SUBSCRIBERS] Will Subscribe to %s",
              topic_name.c_str());
 
 
@@ -138,8 +134,8 @@ void ACGeometryGeneration::SetupROSCommunications() {
     // messages is not enough.
     ros::Rate half_second_sleep(1);
     while(tool_pose_current[0].p.Norm() == 0.0 ){
-        ROS_INFO("%s: Got zero data on %s.",
-                 ros::this_node::getName().c_str(),
+        ROS_INFO("Got zero data on %s.",
+
                  check_topic_name.c_str());
         half_second_sleep.sleep();
         ros::spinOnce();
@@ -156,7 +152,7 @@ void ACGeometryGeneration::Tool1PoseCurrentCallback(
     // take the pose from the arm frame to the task frame
     KDL::Frame frame;
     tf::poseMsgToKDL(msg->pose, frame);
-    tool_pose_current[0] =  RCM_to_task_space_tr[0] * frame;
+    tool_pose_current[0] =  slave_frame_to_task_frame[0] * frame;
 
 }
 
@@ -165,21 +161,21 @@ void ACGeometryGeneration::Tool2PoseCurrentCallback(
     // take the pose from the arm frame to the task frame
     KDL::Frame frame;
     tf::poseMsgToKDL(msg->pose, frame);
-    tool_pose_current[1] =  RCM_to_task_space_tr[1] * frame;
+    tool_pose_current[1] =  slave_frame_to_task_frame[1] * frame;
 }
 
 void ACGeometryGeneration::Tool1TwistCallback(
         const geometry_msgs::TwistStamped::ConstPtr &msg) {
         // take the twist from the arm frame to the task frame
     tf::twistMsgToKDL(msg->twist, tool_twist_current[0]);
-    tool_twist_current[0] = RCM_to_task_space_tr[0] * tool_twist_current[0];
+    tool_twist_current[0] = slave_frame_to_task_frame[0] * tool_twist_current[0];
 }
 
 void ACGeometryGeneration::Tool2TwistCallback(
         const geometry_msgs::TwistStamped::ConstPtr &msg) {
     // take the twist from the arm frame to the task frame
     tf::twistMsgToKDL(msg->twist, tool_twist_current[1]);
-    tool_twist_current[1] = RCM_to_task_space_tr[1] * tool_twist_current[1];
+    tool_twist_current[1] = slave_frame_to_task_frame[1] * tool_twist_current[1];
 
 }
 
@@ -205,11 +201,10 @@ void ACGeometryGeneration::PublishDesiredPose() {
 
 void ACGeometryGeneration::ACPathCallback(const geometry_msgs::PoseArrayConstPtr & msg){
 
-    for (int n_point = 0; n_point < msg->poses.size(); ++n_point) {
-        ac_path.poses.push_back(msg->poses[n_point]);
-    }
-    ac_path_received = true;
+    ac_path.poses = msg->poses;
     ac_path_time_stamp = msg->header.stamp;
+
+    ac_path_received = true;
 }
 
 void ACGeometryGeneration::GenerateXYCircle(const KDL::Vector center, const double radius, const int num_points,

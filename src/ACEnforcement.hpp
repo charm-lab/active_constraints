@@ -102,8 +102,8 @@ private:
 
     ros::Subscriber subscriber_foot_pedal_clutch;
 
-    // RCM_to_task_space_tr used to take the generated forces to slave ref rame
-    KDL::Frame RCM_to_task_space_tr[2];
+    // slave_frame_to_task_frame used to take the generated forces to slave ref rame
+    KDL::Frame slave_frame_to_task_frame[2];
 
 
 };
