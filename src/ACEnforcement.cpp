@@ -102,22 +102,20 @@ void ACEnforcement::SetupROSCommunications() {
                                                           this);
         ROS_INFO("[SUBSCRIBERS] Will subscribe to %s", param_name.str().c_str());
 
+
+        // the current pose of the tools (slaves)
         param_name.str("");
-        param_name << std::string("/") << slave_names[n_arm]
-                   << "/tool_pose_current";
+        param_name << std::string("/dvrk/") <<slave_names[n_arm] << "/position_cartesian_current";
         subscriber_tool_pose_current[n_arm] = n.subscribe(param_name.str(), 1,
-                                                          tool_pose_current_callbacks[n_arm],
-                                                          this);
+                                                          tool_pose_current_callbacks[n_arm], this);
         ROS_INFO("[SUBSCRIBERS] Will subscribe to %s", param_name.str().c_str());
+        // we will later check to see if something is publishing on the current slave pose
 
 
         param_name.str("");
-        param_name << std::string("/") << slave_names[n_arm]
-                   << "/tool_twist_current";
+        param_name << std::string("/dvrk/") <<slave_names[n_arm] << "/twist_body_current";
         subscriber_slaves_current_twist[n_arm] = n.subscribe(param_name.str(),
-                                                             1,
-                                                             tool_twist_callback[n_arm],
-                                                             this);
+                                                             1, tool_twist_callback[n_arm], this);
         ROS_INFO("[SUBSCRIBERS] Will subscribe to %s", param_name.str().c_str());
 
         param_name.str("");
@@ -160,9 +158,13 @@ void ACEnforcement::SetupROSCommunications() {
 
 
     // common subscriber and publishers
-    subscriber_foot_pedal_clutch = n.subscribe("/dvrk/footpedals/coag", 1,
+    subscriber_foot_pedal_coag = n.subscribe("/dvrk/footpedals/coag", 1,
                                                &ACEnforcement::FootPedalCoagCallback, this);
     ROS_INFO("[SUBSCRIBERS] Will subscribe to /dvrk/footpedals/coag");
+
+    subscriber_foot_pedal_clutch = n.subscribe("/dvrk/footpedals/clutch", 1,
+                                               &ACEnforcement::FootPedalClutchCallback, this);
+    ROS_INFO("[SUBSCRIBERS] Will subscribe to /dvrk/footpedals/clutch");
 
     pub_dvrk_console_teleop_enable = n.advertise<std_msgs::Bool>("/dvrk/console/teleop/enable", 1);
 
@@ -174,18 +176,23 @@ void ACEnforcement::SetupROSCommunications() {
 }
 
 
+
 void ACEnforcement::Tool1PoseCurrentCallback(
         const geometry_msgs::PoseStamped::ConstPtr &msg) {
+    // take the pose from the arm frame to the task frame
+    KDL::Frame frame;
+    tf::poseMsgToKDL(msg->pose, frame);
+    tool_pose_current[0] =  slave_frame_to_task_frame[0] * frame;
 
-    tf::poseMsgToKDL(msg->pose, tool_pose_current[0]);
 }
 
 void ACEnforcement::Tool2PoseCurrentCallback(
         const geometry_msgs::PoseStamped::ConstPtr &msg) {
-
-    tf::poseMsgToKDL(msg->pose, tool_pose_current[1]);
+    // take the pose from the arm frame to the task frame
+    KDL::Frame frame;
+    tf::poseMsgToKDL(msg->pose, frame);
+    tool_pose_current[1] =  slave_frame_to_task_frame[1] * frame;
 }
-
 
 void ACEnforcement::Tool1PoseDesiredCallback(
         const geometry_msgs::PoseStamped::ConstPtr &msg) {
@@ -204,13 +211,15 @@ void ACEnforcement::Tool1TwistCallback(
         const geometry_msgs::TwistStamped::ConstPtr &msg) {
 
     tf::twistMsgToKDL(msg->twist, tool_twist[0]);
-
+    tool_twist[0] =  slave_frame_to_task_frame[0] * tool_twist[0];
 }
 
 void ACEnforcement::Tool2TwistCallback(
         const geometry_msgs::TwistStamped::ConstPtr &msg) {
 
     tf::twistMsgToKDL(msg->twist, tool_twist[1]);
+    tool_twist[1] =  slave_frame_to_task_frame[1] * tool_twist[1];
+
 }
 
 void ACEnforcement::Master1StateCallback(
@@ -228,6 +237,10 @@ void ACEnforcement::FootPedalCoagCallback(const sensor_msgs::Joy & msg){
     coag_pressed = (bool)msg.buttons[0];
     new_coag_event = true;
 
+}
+
+void ACEnforcement::FootPedalClutchCallback(const sensor_msgs::Joy & msg){
+    clutch_pressed = (bool)msg.buttons[0];
 }
 
 void ACEnforcement::PublishWrenchInSlaveFrame(const int num_arm, const KDL::Vector f_in){

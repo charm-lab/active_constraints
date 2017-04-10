@@ -35,6 +35,7 @@ public:
     std::string master_1_state;
     std::string master_2_state;
     bool coag_pressed;
+    bool clutch_pressed;
     bool new_coag_event;
 
 //    ros::Publisher pub_master_1_set_state;
@@ -75,6 +76,8 @@ private:
 
     void FootPedalCoagCallback(const sensor_msgs::Joy &msg);
 
+    void FootPedalClutchCallback(const sensor_msgs::Joy &msg);
+
 
     // two function pointers for slave pose current callbacks
 	void (ACEnforcement::*tool_pose_current_callbacks[2])
@@ -100,6 +103,7 @@ private:
 
     ros::Subscriber *subscriber_master_state;
 
+    ros::Subscriber subscriber_foot_pedal_coag;
     ros::Subscriber subscriber_foot_pedal_clutch;
 
     // slave_frame_to_task_frame used to take the generated forces to slave ref rame

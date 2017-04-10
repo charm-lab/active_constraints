@@ -115,7 +115,7 @@ int main(int argc, char *argv[]) {
 
         if(r.new_desired_pose_msg[0]) {
             r.new_desired_pose_msg[0] = false;
-            if (r.coag_pressed) {
+            if (r.coag_pressed && !r.clutch_pressed) {
                 ac_elastic.getForce(f_out, r.tool_pose_current[0].p, r.tool_pose_desired[0].p, r.tool_twist[0].vel);
             } else {
                 KDL::SetToZero(f_out);
