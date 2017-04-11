@@ -47,7 +47,8 @@ public:
 	ros::Publisher *publisher_wrench;
     ros::Publisher *publisher_wrench_body_orientation_absolute;
 
-    void PublishWrenchInSlaveFrame(const int num_arm, const KDL::Vector f_in);
+    void PublishWrenchInSlaveFrame(const int num_arm, const KDL::Vector f,
+                                       const KDL::Vector taw);
 
 private:
 

@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
 	/////////////////////////
     // Override SIGINT handler
 
-    ros::init(argc, argv, "dvrk_ac", ros::init_options::NoSigintHandler);
+    ros::init(argc, argv, "dvrk_ac_enforce", ros::init_options::NoSigintHandler);
     signal(SIGINT, mySigIntHandler);
 
     // Override XMLRPC shutdown
@@ -57,16 +57,19 @@ int main(int argc, char *argv[]) {
 	std_msgs::Bool wrench_body_orientation_absolute;
 
 	////////////////////////////
-
+    double k_coeff = 200;
 	double f_max = 4.00;
-	double k_coeff = 200;
-	double b_coeff = 10;
+    double b_coeff = 10;
 
-	acElastic ac_elastic( f_max,  k_coeff,  b_coeff,  0.01);
+    double taw_max = 0.05;
+	double kappa_coeff = 0.1;
+
+	acElastic ac_elastic( f_max,  taw_max, k_coeff,  b_coeff, kappa_coeff);
     acPlastRedirect ac_plast_redirect(f_max, 0.005, 0.002);
     acViscousRedirect ac_visc_redirect(f_max, 70, 0.002);
 
-	KDL::Vector f_out;
+    KDL::Vector f_out;
+    KDL::Vector taw_out;
 
     // the forces are published only when new desired poses are arrived.
     // so the frequency of the published forces is equal to the frequency
@@ -99,15 +102,15 @@ int main(int argc, char *argv[]) {
 	ros::spinOnce();
 
 
-    KDL::Rotation slave_to_master_tr;
-    slave_to_master_tr.data[4]  = -1;
-    slave_to_master_tr.data[8]  = -1;
-    KDL::Rotation slave_to_master_tr_2;
-    slave_to_master_tr_2.data[0]  = -1;
-    slave_to_master_tr_2.data[4]  = -0.866025404;
-    slave_to_master_tr_2.data[5]  = -0.5;
-    slave_to_master_tr_2.data[7]  = -0.5;
-    slave_to_master_tr_2.data[8]  =  0.866025404;
+//    KDL::Rotation slave_to_master_tr;
+//    slave_to_master_tr.data[4]  = -1;
+//    slave_to_master_tr.data[8]  = -1;
+//    KDL::Rotation slave_to_master_tr_2;
+//    slave_to_master_tr_2.data[0]  = -1;
+//    slave_to_master_tr_2.data[4]  = -0.866025404;
+//    slave_to_master_tr_2.data[5]  = -0.5;
+//    slave_to_master_tr_2.data[7]  = -0.5;
+//    slave_to_master_tr_2.data[8]  =  0.866025404;
 
 	bool first_run = true;
 	while(!g_request_shutdown){
@@ -116,13 +119,17 @@ int main(int argc, char *argv[]) {
         if(r.new_desired_pose_msg[0]) {
             r.new_desired_pose_msg[0] = false;
             if (r.coag_pressed && !r.clutch_pressed) {
-                ac_elastic.getForce(f_out, r.tool_pose_current[0].p, r.tool_pose_desired[0].p, r.tool_twist[0].vel);
+                ac_elastic.getForce(f_out, r.tool_pose_current[0].p,
+                                    r.tool_pose_desired[0].p, r.tool_twist[0].vel);
+                ac_elastic.getTorque(taw_out, r.tool_pose_current[0].M,
+                                     r.tool_pose_desired[0].M, r.tool_twist[0].rot);
             } else {
                 KDL::SetToZero(f_out);
+                KDL::SetToZero(taw_out);
             }
 
             if (r.master_1_state == "DVRK_EFFORT_CARTESIAN") {
-                r.PublishWrenchInSlaveFrame(0, f_out);
+                r.PublishWrenchInSlaveFrame(0, f_out, taw_out);
             }
 
         }
@@ -140,7 +147,7 @@ int main(int argc, char *argv[]) {
 
 	loop_rate.sleep();
 
-    r.PublishWrenchInSlaveFrame(0, KDL::Vector(0.0, 0.0, 0.0));
+    r.PublishWrenchInSlaveFrame(0, KDL::Vector(0.0, 0.0, 0.0), KDL::Vector());
 
     ROS_INFO("Setting zero forces...");
 

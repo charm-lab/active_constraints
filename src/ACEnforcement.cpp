@@ -243,17 +243,22 @@ void ACEnforcement::FootPedalClutchCallback(const sensor_msgs::Joy & msg){
     clutch_pressed = (bool)msg.buttons[0];
 }
 
-void ACEnforcement::PublishWrenchInSlaveFrame(const int num_arm, const KDL::Vector f_in){
+void ACEnforcement::PublishWrenchInSlaveFrame(const int num_arm, const KDL::Vector f,
+                                              const KDL::Vector taw) {
 
     geometry_msgs::Wrench wrench_out;
-    KDL::Vector f_out;
+    KDL::Vector f_out, taw_out;
 
-    f_out =  slave_frame_to_task_frame[num_arm].Inverse() * f_in;
+    f_out =  slave_frame_to_task_frame[num_arm].M.Inverse() * f;
+    taw_out =  slave_frame_to_task_frame[num_arm].M.Inverse() * taw;
 
     wrench_out.force.x = f_out[0];
     wrench_out.force.y = f_out[1];
     wrench_out.force.z = f_out[2];
 
+    wrench_out.torque.x = taw_out[0];
+    wrench_out.torque.y = taw_out[1];
+    wrench_out.torque.z = taw_out[2];
     publisher_wrench[num_arm].publish(wrench_out);
 
 }
