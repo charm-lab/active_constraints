@@ -102,14 +102,14 @@ void acPlast::getForce(KDL::Vector &f_out,
     KDL::Vector In3 = KDL::Vector(0 - n[2]*n[0], 0 - n[2]*n[1], 1 - n[2]*n[2]);
     //(I-n*n')*e
     KDL::Vector mat = KDL::Vector(dot(In1,e), dot(In2,e), dot(In3,e));
-    double m = std::max(1.0,( ( cte/F ) * sqrt( ( vec_norm(e)*vec_norm(e) ) - ( dot(n,e)*dot(n,e) ) ) ) );
+    double m = std::max(1.0,( ( cte/F ) * sqrt( ( e.Norm()*e.Norm() ) - ( dot(n,e)*dot(n,e) ) ) ) );
 
     q_ = ps + n * a3 + mat/m;
 
     KDL::Vector a4 = saturate_vec(e, (F/cte));
     KDL::Vector qf = ps + a4;
-    double qfql = vec_norm(qf - q_last);
-    double qql = vec_norm(q_ - q_last);
+    double qfql = (qf - q_last).Norm();
+    double qql = (q_ - q_last).Norm();
 
     if ( qfql <= qql ) q_ = qf;
 
@@ -152,7 +152,7 @@ void acPlastRedirect::getForce(KDL::Vector &f_out,
 
     // boundary condition
     double ptrans = BOUNDARY_THRESHOLD_;
-    if ( vec_norm(penet) < ptrans ) theta = theta * (vec_norm(penet)/ptrans);
+    if ( penet.Norm() < ptrans ) theta = theta * (penet.Norm()/ptrans);
 
     z_ = z_ + p_tool- p_tool_last_;
 
@@ -160,7 +160,7 @@ void acPlastRedirect::getForce(KDL::Vector &f_out,
     normalizeSafe(ptn, KDL::Vector(0.0,0.0,0.0));
     KDL::Vector zn = z_;
     normalizeSafe(zn, KDL::Vector(0.0,0.0,0.0));
-    double a = atan2(vec_norm(ptn*zn), dot(zn, ptn));
+    double a = atan2((ptn*zn).Norm(), dot(zn, ptn));
 
     KDL::Vector n = penet*z_;
     KDL::Vector nn = n;
@@ -170,9 +170,9 @@ void acPlastRedirect::getForce(KDL::Vector &f_out,
     KDL::Vector yn = y;
     normalizeSafe(yn, KDL::Vector(0.0,0.0,0.0));
 
-    if ( a <= theta && vec_norm(z_) <= zcss )
+    if ( a <= theta && z_.Norm() <= zcss )
         z_ = z_ * 1;
-    else if ( a <= theta && vec_norm(z_) > zcss )
+    else if ( a <= theta && z_.Norm() > zcss )
         z_ = zcss*zn;
     else
     {
@@ -234,7 +234,7 @@ void acViscousRedirect::getForce(KDL::Vector &f_out,
     normalizeSafe(penet_dir, KDL::Vector(1.0,0.0,0.0));
 
     double V_PENET_DOTP = dot(v_tool_dir, penet_dir);
-    double PENET =vec_norm(penet);
+    double PENET =penet.Norm();
 
     // limit the viscous coefficient around the boundary to minimize the oscillation
     if (PENET< BOUNDARY_THRESHOLD_){
@@ -245,7 +245,7 @@ void acViscousRedirect::getForce(KDL::Vector &f_out,
 
     // calculate the magnitude of the ac force
 //	F_VC = B_M * sqrt( ( 1 - V_PENET_DOTP ) / 2 ) * v_msrd.Norm();
-    F_VC = B_M * sqrt( ( 1 - V_PENET_DOTP ) / 2 ) * vec_norm(v_msrd);
+    F_VC = B_M * sqrt( ( 1 - V_PENET_DOTP ) / 2 ) * v_msrd.Norm();
     // saturate the magnitude of the ac force
     F_VC_SAT = saturate(0.0, F_VC , F_MAX_ );
 
@@ -261,8 +261,8 @@ void acViscousRedirect::getForce(KDL::Vector &f_out,
         f_dir = penet_dir;
     else
     if(rotateVector(v_tool_dir, f_dir, nn, THETA) < 0)
-        std::cout << "Null in rotateVector." <<"  norm(v_tool_dir) = "<< vec_norm(v_tool_dir)<<
-                  "  , norm(nn) = "<< vec_norm(nn) << std::endl;
+        std::cout << "Null in rotateVector." <<"  norm(v_tool_dir) = "<< v_tool_dir.Norm()<<
+                  "  , norm(nn) = "<< nn.Norm() << std::endl;
 
     //-----------------------------------------------------------------------
     // Make the force vector from the calculated magnitude and direction
@@ -310,7 +310,7 @@ void acElastic::getForce(KDL::Vector &f_out,
 
     // make the force vector
     KDL::Vector f_all = k_ * penet - b_ * v_msrd;
-    double f_all_magnitude = toolbox::vec_norm(f_all);
+    double f_all_magnitude = f_all.Norm();
 
     // limit the force to F_MAX_
     if (f_all_magnitude > F_MAX_)
@@ -366,7 +366,7 @@ int toolbox::rotateVector(const KDL::Vector vector_in,
                           const KDL::Vector n,
                           const double THETA){
 
-    if (vec_norm(vector_in) ==0.0 || vec_norm(n) ==0.0){
+    if (vector_in.Norm() ==0.0 || n.Norm() ==0.0){
 //		ROS_ERROR("Null vector given as the input of rotation function.");
         return -1;
     }
@@ -381,7 +381,7 @@ int toolbox::normalizeSafe(KDL::Vector & vec_in,
     // Checks the norm of the vec_in. If it is non zero the function normalizes it.
     // If the norm is zero the function uses vec_safe as the output
 
-    double l = vec_norm(vec_in);
+    double l = vec_in.Norm();
     if( fabs(l) >= std::numeric_limits<double>::epsilon() ) {
         vec_in[0] /= l;
         vec_in[1] /= l;
@@ -412,7 +412,7 @@ double toolbox::saturate (double a,
 KDL::Vector toolbox::saturate_vec(KDL::Vector x,
                                   double a){
 
-    double l = vec_norm(x);
+    double l = x.Norm();
     KDL::Vector xn = x;
     normalizeSafe(xn, KDL::Vector(0.0,0.0,0.0));
 
@@ -421,9 +421,6 @@ KDL::Vector toolbox::saturate_vec(KDL::Vector x,
 
 }
 
-double toolbox::vec_norm(KDL::Vector x) {
-    return sqrt( x[0]*x[0] + x[1]*x[1] + x[2]*x[2] );
-}
 
 
 

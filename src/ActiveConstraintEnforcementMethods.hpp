@@ -251,8 +251,6 @@ namespace toolbox{
 //! This function limits the norm of the vector x to a maximum of a
     KDL::Vector saturate_vec(KDL::Vector x, double a);
 
-//! This function calculates the norm of vector x
-    double vec_norm(KDL::Vector x);
 
 }
 
