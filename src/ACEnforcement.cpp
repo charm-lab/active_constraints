@@ -112,8 +112,10 @@ void ACEnforcement::SetupROSCommunications() {
         // we will later check to see if something is publishing on the current slave pose
 
 
+        // NOTE we are using the master's velocity
+
         param_name.str("");
-        param_name << std::string("/dvrk/") <<slave_names[n_arm] << "/twist_body_current";
+        param_name << std::string("/dvrk/") <<master_names[n_arm] << "/twist_body_current";
         subscriber_slaves_current_twist[n_arm] = n.subscribe(param_name.str(),
                                                              1, tool_twist_callback[n_arm], this);
         ROS_INFO("[SUBSCRIBERS] Will subscribe to %s", param_name.str().c_str());

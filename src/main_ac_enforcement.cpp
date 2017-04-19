@@ -59,7 +59,7 @@ int main(int argc, char *argv[]) {
 	////////////////////////////
     double k_coeff = 200;
 	double f_max = 4.00;
-    double b_coeff = 10;
+    double b_coeff = 8;
 
     double taw_max = 0.05;
 	double kappa_coeff = 0.1;

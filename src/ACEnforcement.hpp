@@ -20,6 +20,13 @@
 #include <tf_conversions/tf_kdl.h>
 class ACEnforcement {
 
+
+    // NOTE we are using the master's velocity
+    // I noticed there was about 150 ms delay in the dvrk teleop loop, which made
+    // the force feedback unstable specially the viscous part. Using the master's
+    // twist instead of the slave made things much better. If there was no clutching
+    // I would have used also the position of the master
+
 public:
 	ACEnforcement(std::string node_name);
     void StartTeleop();
