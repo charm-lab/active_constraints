@@ -285,13 +285,16 @@ acElastic::acElastic(const double F_MAX,
                      const double TAW_MAX,
                      const double k,
                      const double b,
-                     const double kappa) {
+                     const double kappa,
+                     const double c)
+{
     F_MAX_ = F_MAX;
     TAW_MAX_ = TAW_MAX;
     k_ = k;
     b_ = b;
     kappa_ = kappa;
-    penet_vel_ = 0;
+    c_ = c;
+//    penet_vel_ = 0;
 
 };
 
@@ -299,17 +302,16 @@ acElastic::acElastic(const double F_MAX,
 //-----------------------------------------------------------------------
 // FORCE GENERATION
 //-----------------------------------------------------------------------
-
 void acElastic::getForce(KDL::Vector &f_out,
                          const KDL::Vector p_tool,
                          const KDL::Vector p_desired,
-                         const KDL::Vector v_msrd){
+                         const KDL::Vector twist_msrd){
 
     // find the penetration vector
     KDL::Vector penet = p_desired - p_tool;
 
     // make the force vector
-    KDL::Vector f_all = k_ * penet - b_ * v_msrd;
+    KDL::Vector f_all = k_ * penet - b_ * twist_msrd;
     double f_all_magnitude = f_all.Norm();
 
     // limit the force to F_MAX_
@@ -318,8 +320,8 @@ void acElastic::getForce(KDL::Vector &f_out,
     else
         f_out = f_all;
 
-    // save last penet
-    penet_last = penet;
+//    // save last penet
+//    penet_last = penet;
 
 }
 
@@ -327,7 +329,6 @@ void acElastic::getForce(KDL::Vector &f_out,
 //-----------------------------------------------------------------------
 // FORCE TORQUE
 //-----------------------------------------------------------------------
-
 void acElastic::getTorque(KDL::Vector &taw_out,
                           const KDL::Rotation rot_current,
                           const KDL::Rotation rot_desired,
@@ -341,7 +342,7 @@ void acElastic::getTorque(KDL::Vector &taw_out,
     d_rot.GetRPY(delta_rpy[0], delta_rpy[1], delta_rpy[2]);
 
     // find the elastic torque
-    KDL::Vector taw_all = kappa_ * delta_rpy; //- b_ * rot_vel;
+    KDL::Vector taw_all = kappa_ * delta_rpy - c_ * rot_vel;
     double taw_norm = taw_all.Norm();
 
     // limit the force to F_MAX_

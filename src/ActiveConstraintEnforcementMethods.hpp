@@ -203,10 +203,10 @@ public:
     acElastic(const double _F_MAX,
               const double TAW_MAX,
               const double _k,
-              const double _b, const double kappa);
+              const double _b, const double kappa, const double c);
 
     //! This method calculates the force
-    void getForce(KDL::Vector &f_out,  const KDL::Vector p_tool, const KDL::Vector p_desired, const KDL::Vector v_msrd);
+    void getForce(KDL::Vector &f_out,  const KDL::Vector p_tool, const KDL::Vector p_desired, const KDL::Vector twist_msrd);
 
     //! calculate a torsion elastic torque given a desired rotation
     void getTorque(KDL::Vector &t_out,  const KDL::Rotation rot_current,
@@ -223,10 +223,11 @@ private:
     double b_;
     // torsion elastic modulus
     double kappa_;
+    double c_;
 
     //! internal variable the method needs to keep a track of
-    KDL::Vector penet_last;
-    double penet_vel_;
+//    KDL::Vector penet_last;
+//    double penet_vel_;
 
 };
 //-----------------------------------------------------------------------
