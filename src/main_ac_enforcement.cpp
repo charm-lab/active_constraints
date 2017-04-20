@@ -1,6 +1,5 @@
 
 #include <iostream>
-#include "ActiveConstraintEnforcementMethods.hpp"
 
 #include <ros/ros.h>
 #include <std_msgs/String.h>
@@ -56,17 +55,7 @@ int main(int argc, char *argv[]) {
 	std_msgs::String robot1_state_command;
 	std_msgs::Bool wrench_body_orientation_absolute;
 
-	////////////////////////////
-    double k_coeff = 200;
-	double f_max = 4.00;
-    double b_coeff = 8;
 
-    double taw_max = 0.05;
-	double kappa_coeff = 0.1;
-
-	acElastic ac_elastic( f_max,  taw_max, k_coeff,  b_coeff, kappa_coeff);
-    acPlastRedirect ac_plast_redirect(f_max, 0.005, 0.002);
-    acViscousRedirect ac_visc_redirect(f_max, 70, 0.002);
 
     KDL::Vector f_out;
     KDL::Vector taw_out;
@@ -75,7 +64,7 @@ int main(int argc, char *argv[]) {
     // so the frequency of the published forces is equal to the frequency
     // of the desired pose topic
     // loop_rate is the frequency of spinning and checking for new messages
-    ros::Rate loop_rate(200);
+    ros::Rate loop_rate(500);
 
 	ros::Rate half_second_sleep(1);
     half_second_sleep.sleep();
@@ -119,10 +108,10 @@ int main(int argc, char *argv[]) {
         if(r.new_desired_pose_msg[0]) {
             r.new_desired_pose_msg[0] = false;
             if (r.coag_pressed && !r.clutch_pressed) {
-                ac_elastic.getForce(f_out, r.tool_pose_current[0].p,
-                                    r.tool_pose_desired[0].p, r.tool_twist[0].vel);
-                ac_elastic.getTorque(taw_out, r.tool_pose_current[0].M,
-                                     r.tool_pose_desired[0].M, r.tool_twist[0].rot);
+                r.ac_elastic->getForce(f_out, r.slave_pose_current[0].p,
+                                    r.tool_pose_desired[0].p, r.master_twist_filt[0].vel);
+                r.ac_elastic->getTorque(taw_out, r.slave_pose_current[0].M,
+                                     r.tool_pose_desired[0].M, r.master_twist_filt[0].rot);
             } else {
                 KDL::SetToZero(f_out);
                 KDL::SetToZero(taw_out);

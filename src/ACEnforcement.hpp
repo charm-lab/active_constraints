@@ -18,6 +18,8 @@
 #include <sensor_msgs/Joy.h>
 #include <kdl/frames.hpp>
 #include <tf_conversions/tf_kdl.h>
+#include "ActiveConstraintEnforcementMethods.hpp"
+
 class ACEnforcement {
 
 
@@ -35,9 +37,11 @@ public:
 	//double ros_freq;
 	bool new_desired_pose_msg[2];
 	int n_arms;
-    KDL::Frame tool_pose_current[2];
+    KDL::Frame slave_pose_current[2];
+    KDL::Frame master_pose_current[2];
     KDL::Frame tool_pose_desired[2];
-    KDL::Twist tool_twist[2];
+    KDL::Twist master_twist_dvrk[2];
+    KDL::Twist master_twist_filt[2];
 
     std::string master_1_state;
     std::string master_2_state;
@@ -45,26 +49,41 @@ public:
     bool clutch_pressed;
     bool new_coag_event;
 
+    // velocity filtering
+    const int foaw_n = 15;
+    int foaw_i[6] = {0, 0 ,0, 0, 0, 0};
+    double ** posbuf;
+
 //    ros::Publisher pub_master_1_set_state;
 //    ros::Publisher pub_master_2_set_state;
 
     ros::Publisher pub_dvrk_console_teleop_enable;
     ros::Publisher pub_dvrk_home;
     ros::Publisher pub_dvrk_power_off;
+    ros::Publisher pub_twist;
 	ros::Publisher *publisher_wrench;
     ros::Publisher *publisher_wrench_body_orientation_absolute;
 
     void PublishWrenchInSlaveFrame(const int num_arm, const KDL::Vector f,
                                        const KDL::Vector taw);
 
+    acElastic * ac_elastic;
+    acPlastRedirect *  ac_plast_redirect;
+    acViscousRedirect * ac_visc_redirect;
 private:
 
 	void SetupROSCommunications();
 
-	void Tool1PoseCurrentCallback(
+	void Slave1PoseCurrentCallback(
             const geometry_msgs::PoseStamped::ConstPtr &msg);
 
-	void Tool2PoseCurrentCallback(
+	void Slave2PoseCurrentCallback(
+            const geometry_msgs::PoseStamped::ConstPtr &msg);
+
+    void Master1PoseCurrentCallback(
+            const geometry_msgs::PoseStamped::ConstPtr &msg);
+
+	void Master2PoseCurrentCallback(
             const geometry_msgs::PoseStamped::ConstPtr &msg);
 
     void Tool1PoseDesiredCallback(
@@ -74,9 +93,9 @@ private:
             const geometry_msgs::PoseStamped::ConstPtr &msg);
 
 
-    void Tool1TwistCallback(const geometry_msgs::TwistStamped::ConstPtr &msg);
+    void Master1TwistCallback(const geometry_msgs::TwistStamped::ConstPtr &msg);
 
-	void Tool2TwistCallback(const geometry_msgs::TwistStamped::ConstPtr &msg);
+	void Master2TwistCallback(const geometry_msgs::TwistStamped::ConstPtr &msg);
 
     void Master1StateCallback(const std_msgs::StringConstPtr &msg);
 
@@ -88,7 +107,11 @@ private:
 
 
     // two function pointers for slave pose current callbacks
-	void (ACEnforcement::*tool_pose_current_callbacks[2])
+	void (ACEnforcement::*slave_pose_current_callbacks[2])
+			(const geometry_msgs::PoseStamped::ConstPtr &msg);
+
+    // two function pointers for slave pose current callbacks
+	void (ACEnforcement::*master_pose_current_callbacks[2])
 			(const geometry_msgs::PoseStamped::ConstPtr &msg);
 
     // two function pointers for slave pose desired callbacks
@@ -96,16 +119,22 @@ private:
             (const geometry_msgs::PoseStamped::ConstPtr &msg);
 
 	// two function pointers for slave twist callbacks
-	void (ACEnforcement::*tool_twist_callback[2])
+	void (ACEnforcement::*master_twist_callback[2])
 			(const geometry_msgs::TwistStamped::ConstPtr &msg);
 
     // two function pointers for master state callbacks
     void (ACEnforcement::*master_state_callback[2])
             (const std_msgs::StringConstPtr &msg);
 
+    double
+    do_foaw_sample(double *posbuf, int size, int *k, double current_pos, int best,
+                       const double noise);
 private:
+    double filtering_frequency;
+
 	ros::NodeHandle n;
-    ros::Subscriber *subscriber_tool_pose_current;
+    ros::Subscriber *subscriber_slave_pose_current;
+    ros::Subscriber *subscriber_master_pose_current;
     ros::Subscriber *subscriber_tool_pose_desired;
 	ros::Subscriber *subscriber_slaves_current_twist;
 
@@ -116,7 +145,6 @@ private:
 
     // slave_frame_to_task_frame used to take the generated forces to slave ref rame
     KDL::Frame slave_frame_to_task_frame[2];
-
 
 };
 
