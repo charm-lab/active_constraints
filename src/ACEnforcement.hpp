@@ -1,3 +1,12 @@
+//==============================================================================
+/*
+    Software License provided in the home directory, Nearlab
+
+    \author    <http://nearlab.polimi.it/>
+    \author    Nima Enayati
+    \version   -
+*/
+//==============================================================================
 /*
  * ActiveConstraintsRos.hpp
  *
@@ -21,62 +30,77 @@
 #include "ActiveConstraintEnforcementMethods.hpp"
 #include "active_constraints/ActiveConstraintParameters.h"
 
+/**
+ * \class ACEnforcement
+ * \brief This is a .
+ *  NOTE we are using the master's velocity
+ *  I noticed there was about 100 ms delay in the dvrk teleop loop, which made
+ *  the force feedback unstable specially the viscous part. Using the master's
+ *  twist instead of the slave made things much better. If there was no clutching
+ *  I would have used also the position of the master
+ *
+ *  Methods: 0: visco/elastic
+ *           1: ? (TODO)
+ *           2: ?
+ *           3: ?
+ */
 
-// NOTE we are using the master's velocity
-// I noticed there was about 100 ms delay in the dvrk teleop loop, which made
-// the force feedback unstable specially the viscous part. Using the master's
-// twist instead of the slave made things much better. If there was no clutching
-// I would have used also the position of the master
-
-// methods: 0: visco/elastic
-//          1: ? (TODO)
-//          2: ?
-//          3: ?
-
-
+enum ac_method :uint {ViscoElastic, Plastic, PlasticRedirect, ViscousRedirect};
 
 class ACEnforcement {
 
 public:
+
     ACEnforcement(std::string node_name);
+
+    /**
+    * @brief  Sends the dvrk arms to home and asks them to start the teleop
+     * mode
+    **/
     void StartTeleop();
+
 public:
-    // Tool poses are all in task coordinate frame
-    //double ros_freq;
-    bool new_desired_pose_msg[2];
+
+    /**
+    * @brief  Takes the wrench to slave/master coordinate frame and publish
+     *
+     * @param arm_number. 1 or 2.
+     *
+    **/
+    void PublishWrenchInSlaveFrame(const int num_arm, const KDL::Wrench wrench);
+
+    /**
+     * @brief   Assuming once this method is called we can mark the data as used.
+     *
+     * @param arm_number. 1 or 2.
+    */
+    bool IsDesiredPoseNew(const int arm_number);
+
+    /**
+    * @brief   We publish in two cases:
+     * 1- when the clutch is not pressed
+     * 2- when clutch is pressed. In this case we publish just for one time
+     * to prevent the data being cluttered by zeros in case we are going to
+     * analyze the wrench data later.
+     */
+    bool IsPublishingAllowed();
+
+    /**
+    * @brief   generates the active constraint wrench based on the method assigned in
+     * .
+     *
+     * @param arm_number. 1 or 2.
+   */
+    KDL::Wrench GetWrench(const int arm_number);
+
+public:
+
     int n_arms;
-    KDL::Frame slave_pose_current[2];
-    KDL::Frame master_pose_current[2];
-    KDL::Frame tool_pose_desired[2];
-    KDL::Twist master_twist_dvrk[2];
-    KDL::Twist master_twist_filt[2];
 
     std::string master_state[2];
     bool coag_pressed;
     bool clutch_pressed;
-    bool new_coag_event;
-
-    // velocity filtering
-    const int foaw_n = 15;
-    int foaw_i[6] = {0, 0 ,0, 0, 0, 0};
-    double ** posbuf;
-
-//    ros::Publisher pub_master_1_set_state;
-//    ros::Publisher pub_master_2_set_state;
-
-    ros::Publisher pub_dvrk_console_teleop_enable;
-    ros::Publisher pub_dvrk_home;
-    ros::Publisher pub_dvrk_power_off;
-    ros::Publisher pub_twist;
-    ros::Publisher *publisher_wrench;
-    ros::Publisher *publisher_wrench_body_orientation_absolute;
-
-    void PublishWrenchInSlaveFrame(const int num_arm, const KDL::Vector f,
-                                   const KDL::Vector taw);
-
-    acElastic * ac_elastic[2];
-    acPlastRedirect *  ac_plast_redirect[2];
-    acViscousRedirect * ac_visc_redirect[2];
+    bool new_clutch_event;
 
     active_constraints::ActiveConstraintParameters ac_params[2];
 
@@ -146,11 +170,29 @@ private:
     void (ACEnforcement::*ac_params_callback[2])
             (const active_constraints::ActiveConstraintParametersConstPtr &msg);
 
-    double
-    do_foaw_sample(double *posbuf, int size, int *k, double current_pos, int best,
-                   const double noise);
+    double do_foaw_sample(double *posbuf, int size, int *k,
+                          double current_pos, int best, const double noise);
 private:
+
+    acElastic * ac_elastic[2];
+    acPlast *  ac_plast[2];
+    acPlastRedirect *  ac_plast_redirect[2];
+    acViscousRedirect * ac_visc_redirect[2];
+
+    KDL::Frame slave_pose_current[2];
+    KDL::Frame master_pose_current[2];
+    KDL::Frame tool_pose_desired[2];
+    KDL::Twist master_twist_dvrk[2];
+    KDL::Twist master_twist_filt[2];
+
+    // velocity filtering
     double filtering_frequency;
+    const int foaw_n = 15;
+    int foaw_i[6] = {0, 0 ,0, 0, 0, 0};
+    double ** foaw_position_buffer;
+
+    // Tool poses are all in task coordinate frame
+    bool new_desired_pose_msg[2];
 
     ros::NodeHandle n;
     ros::Subscriber *subscriber_slave_pose_current;
@@ -159,9 +201,16 @@ private:
     ros::Subscriber *subscriber_slaves_current_twist;
 
     ros::Subscriber *subscriber_master_state;
-
+    ros::Subscriber *subscriber_ac_params;
     ros::Subscriber subscriber_foot_pedal_coag;
     ros::Subscriber subscriber_foot_pedal_clutch;
+
+    ros::Publisher pub_dvrk_console_teleop_enable;
+    ros::Publisher pub_dvrk_home;
+    ros::Publisher pub_dvrk_power_off;
+    ros::Publisher pub_twist;
+    ros::Publisher *publisher_wrench;
+    ros::Publisher *publisher_wrench_body_orientation_absolute;
 
     // slave_frame_to_task_frame used to take the generated forces to slave ref rame
     KDL::Frame slave_frame_to_task_frame[2];

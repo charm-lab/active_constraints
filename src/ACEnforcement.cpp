@@ -12,8 +12,10 @@
 #include "ACGeometryGeneration.h"
 
 ACEnforcement::ACEnforcement(std::string node_name)
-        : n(node_name), coag_pressed(false)
-{
+        : n(node_name),
+          coag_pressed(false),
+          clutch_pressed(false),
+          new_clutch_event(false) {
 
     // assign the callback functions
     slave_pose_current_callbacks[0] = &ACEnforcement::Slave0PoseCurrentCallback;
@@ -34,14 +36,17 @@ ACEnforcement::ACEnforcement(std::string node_name)
 
     new_desired_pose_msg[0] = false;
     new_desired_pose_msg[1] = false;
-    SetupROSCommunications();
-    posbuf = new double *[3];
-    for(int i = 0; i < 3; i++)
-        posbuf[i] = new double[foaw_n];
 
-    memset(posbuf[0], 0, sizeof(float)*foaw_n);
-    memset(posbuf[1], 0, sizeof(float)*foaw_n);
-    memset(posbuf[2], 0, sizeof(float)*foaw_n);
+    SetupROSCommunications();
+
+    // Initialize velocity estimation variables
+    foaw_position_buffer = new double *[3];
+    for (int i = 0; i < 3; i++)
+        foaw_position_buffer[i] = new double[foaw_n];
+
+    memset(foaw_position_buffer[0], 0, sizeof(float) * foaw_n);
+    memset(foaw_position_buffer[1], 0, sizeof(float) * foaw_n);
+    memset(foaw_position_buffer[2], 0, sizeof(float) * foaw_n);
 
 }
 
@@ -58,12 +63,13 @@ void ACEnforcement::SetupROSCommunications() {
     // Loop frequency
     ROS_INFO("Node frequency depends on the desired pose topic.");
     n.param<double>("sampling_frequency", filtering_frequency, 100);
-    ROS_INFO("For Filtering purposes, sampling rate is set as: %f.", filtering_frequency);
+    ROS_INFO("For Filtering purposes, sampling rate is set as: %f.",
+             filtering_frequency);
 
     n.param<int>("number_of_arms", n_arms, 1);
     ROS_INFO("Expecting '%d' arm(s)", n_arms);
 
-    if(n_arms<1)
+    if (n_arms < 1)
         ROS_ERROR("Number of arms must be at least 1.");
 
     // Subscribers and publishers
@@ -74,12 +80,13 @@ void ACEnforcement::SetupROSCommunications() {
     subscriber_tool_pose_desired = new ros::Subscriber[n_arms];
     subscriber_slaves_current_twist = new ros::Subscriber[n_arms];
     subscriber_master_state = new ros::Subscriber[n_arms];
+    subscriber_ac_params = new ros::Subscriber[n_arms];
 
     // tool1 name
     std::string slave_names[n_arms];
     std::string master_names[n_arms];
 
-    for(int n_arm = 0; n_arm<n_arms; n_arm++) {
+    for (int n_arm = 0; n_arm < n_arms; n_arm++) {
 
         //getting the name of the arms
         std::stringstream param_name;
@@ -115,33 +122,44 @@ void ACEnforcement::SetupROSCommunications() {
         subscriber_tool_pose_desired[n_arm] = n.subscribe(param_name.str(), 1,
                                                           tool_pose_desired_callbacks[n_arm],
                                                           this);
-        ROS_INFO("[SUBSCRIBERS] Will subscribe to %s", param_name.str().c_str());
+        ROS_INFO("[SUBSCRIBERS] Will subscribe to %s",
+                 param_name.str().c_str());
 
 
         // the current pose of the slaves
         param_name.str("");
-        param_name << std::string("/dvrk/") <<slave_names[n_arm] << "/position_cartesian_current";
+        param_name << std::string("/dvrk/") << slave_names[n_arm]
+                   << "/position_cartesian_current";
         subscriber_slave_pose_current[n_arm] = n.subscribe(param_name.str(), 1,
-                                                          slave_pose_current_callbacks[n_arm], this);
-        ROS_INFO("[SUBSCRIBERS] Will subscribe to %s", param_name.str().c_str());
+                                                           slave_pose_current_callbacks[n_arm],
+                                                           this);
+        ROS_INFO("[SUBSCRIBERS] Will subscribe to %s",
+                 param_name.str().c_str());
         // we will later check to see if something is publishing on the current slave pose
 
 
 
         // the current pose of the masters
         param_name.str("");
-        param_name << std::string("/dvrk/") <<master_names[n_arm] << "/position_cartesian_current";
+        param_name << std::string("/dvrk/") << master_names[n_arm]
+                   << "/position_cartesian_current";
         subscriber_master_pose_current[n_arm] = n.subscribe(param_name.str(), 1,
-                                                          master_pose_current_callbacks[n_arm], this);
-        ROS_INFO("[SUBSCRIBERS] Will subscribe to %s", param_name.str().c_str());
+                                                            master_pose_current_callbacks[n_arm],
+                                                            this);
+        ROS_INFO("[SUBSCRIBERS] Will subscribe to %s",
+                 param_name.str().c_str());
 
 
         // NOTE we are using the master's velocity
         param_name.str("");
-        param_name << std::string("/dvrk/") <<master_names[n_arm] << "/twist_body_current";
+        param_name << std::string("/dvrk/") << master_names[n_arm]
+                   << "/twist_body_current";
         subscriber_slaves_current_twist[n_arm] = n.subscribe(param_name.str(),
-                                                             1, master_twist_callback[n_arm], this);
-        ROS_INFO("[SUBSCRIBERS] Will subscribe to %s", param_name.str().c_str());
+                                                             1,
+                                                             master_twist_callback[n_arm],
+                                                             this);
+        ROS_INFO("[SUBSCRIBERS] Will subscribe to %s",
+                 param_name.str().c_str());
 
         param_name.str("");
         param_name << std::string("/dvrk/") << master_names[n_arm]
@@ -149,16 +167,18 @@ void ACEnforcement::SetupROSCommunications() {
         subscriber_master_state[n_arm] = n.subscribe(param_name.str(), 1,
                                                      master_state_callback[n_arm],
                                                      this);
-        ROS_INFO("[SUBSCRIBERS] Will subscribe to %s", param_name.str().c_str());
+        ROS_INFO("[SUBSCRIBERS] Will subscribe to %s",
+                 param_name.str().c_str());
 
 
         param_name.str("");
         param_name << std::string("/") << master_names[n_arm]
                    << "/active_constraint_param";
-        subscriber_master_state[n_arm] = n.subscribe(param_name.str(), 1,
-                                                     ac_params_callback[n_arm],
-                                                     this);
-        ROS_INFO("[SUBSCRIBERS] Will subscribe to %s", param_name.str().c_str());
+        subscriber_ac_params[n_arm] = n.subscribe(param_name.str(), 1,
+                                                  ac_params_callback[n_arm],
+                                                  this);
+        ROS_INFO("[SUBSCRIBERS] Will subscribe to %s",
+                 param_name.str().c_str());
 
 
         // the transformation from the coordinate frame of the slave (RCM) to the task coordinate
@@ -179,7 +199,7 @@ void ACEnforcement::SetupROSCommunications() {
     }
 
     ////////////////////////////
-    double k_coeff, f_max, b_coeff, taw_max, kappa_coeff,c_coeff;
+    double k_coeff, f_max, b_coeff, taw_max, kappa_coeff, c_coeff;
 
     n.param<double>("max_force", f_max, 4.0);
     ROS_INFO("max_force:  '%f'", f_max);
@@ -202,7 +222,8 @@ void ACEnforcement::SetupROSCommunications() {
 
     // params will be overwritten if new message arrives
     for (int j = 0; j < 2; ++j) {
-        ac_elastic[j] = new acElastic( f_max,  taw_max, k_coeff,  b_coeff, kappa_coeff, c_coeff);
+        ac_elastic[j] = new acElastic(f_max, taw_max, k_coeff, b_coeff,
+                                      kappa_coeff, c_coeff);
         // will add params for the other constraints soon ...
         ac_plast_redirect[j] = new acPlastRedirect(f_max, 0.005, 0.002);
         ac_visc_redirect[j] = new acViscousRedirect(f_max, 70, 0.002);
@@ -221,18 +242,22 @@ void ACEnforcement::SetupROSCommunications() {
 
     // common subscriber and publishers
     subscriber_foot_pedal_coag = n.subscribe("/dvrk/footpedals/coag", 1,
-                                               &ACEnforcement::FootPedalCoagCallback, this);
+                                             &ACEnforcement::FootPedalCoagCallback,
+                                             this);
     ROS_INFO("[SUBSCRIBERS] Will subscribe to /dvrk/footpedals/coag");
 
     subscriber_foot_pedal_clutch = n.subscribe("/dvrk/footpedals/clutch", 1,
-                                               &ACEnforcement::FootPedalClutchCallback, this);
+                                               &ACEnforcement::FootPedalClutchCallback,
+                                               this);
     ROS_INFO("[SUBSCRIBERS] Will subscribe to /dvrk/footpedals/clutch");
 
-    pub_dvrk_console_teleop_enable = n.advertise<std_msgs::Bool>("/dvrk/console/teleop/enable", 1);
+    pub_dvrk_console_teleop_enable = n.advertise<std_msgs::Bool>(
+            "/dvrk/console/teleop/enable", 1);
 
     pub_dvrk_home = n.advertise<std_msgs::Empty>("/dvrk/console/home", 1);
 
-    pub_dvrk_power_off = n.advertise<std_msgs::Empty>("/dvrk/console/power_off", 1);
+    pub_dvrk_power_off = n.advertise<std_msgs::Empty>("/dvrk/console/power_off",
+                                                      1);
 
 
     pub_twist = n.advertise<geometry_msgs::Twist>("/twist", 1);
@@ -240,15 +265,12 @@ void ACEnforcement::SetupROSCommunications() {
 }
 
 
-
-
-
 void ACEnforcement::Slave0PoseCurrentCallback(
         const geometry_msgs::PoseStamped::ConstPtr &msg) {
     // take the pose from the arm frame to the task frame
     KDL::Frame frame;
     tf::poseMsgToKDL(msg->pose, frame);
-    slave_pose_current[0] =  slave_frame_to_task_frame[0] * frame;
+    slave_pose_current[0] = slave_frame_to_task_frame[0] * frame;
 
 }
 
@@ -257,7 +279,7 @@ void ACEnforcement::Slave1PoseCurrentCallback(
     // take the pose from the arm frame to the task frame
     KDL::Frame frame;
     tf::poseMsgToKDL(msg->pose, frame);
-    slave_pose_current[1] =  slave_frame_to_task_frame[1] * frame;
+    slave_pose_current[1] = slave_frame_to_task_frame[1] * frame;
 }
 
 
@@ -266,25 +288,27 @@ void ACEnforcement::Master0PoseCurrentCallback(
     // take the pose from the arm frame to the task frame
     KDL::Frame frame;
     tf::poseMsgToKDL(msg->pose, frame);
-    master_pose_current[0] =  slave_frame_to_task_frame[0] * frame;
+    master_pose_current[0] = slave_frame_to_task_frame[0] * frame;
 
-    double r,p,y;
-    master_pose_current[0].M.GetRPY(r,p,y);
+    double r, p, y;
+    master_pose_current[0].M.GetRPY(r, p, y);
 
-    master_twist_filt[0].vel[0] = do_foaw_sample(posbuf[0], foaw_n, &foaw_i[0],
+    master_twist_filt[0].vel[0] = do_foaw_sample(foaw_position_buffer[0],
+                                                 foaw_n, &foaw_i[0],
                                                  master_pose_current[0].p[0], 1,
                                                  0.001);
-    master_twist_filt[0].vel[1] = do_foaw_sample(posbuf[1], foaw_n, &foaw_i[1],
+    master_twist_filt[0].vel[1] = do_foaw_sample(foaw_position_buffer[1],
+                                                 foaw_n, &foaw_i[1],
                                                  master_pose_current[0].p[1], 1,
                                                  0.001);
-    master_twist_filt[0].vel[2] = do_foaw_sample(posbuf[2], foaw_n, &foaw_i[2],
+    master_twist_filt[0].vel[2] = do_foaw_sample(foaw_position_buffer[2],
+                                                 foaw_n, &foaw_i[2],
                                                  master_pose_current[0].p[2], 1,
                                                  0.001);
 
     // just averaging the angular velocity
-    master_twist_filt[0].rot -= master_twist_filt[0].rot/10;
-    master_twist_filt[0].rot += master_twist_dvrk[0].rot/10;
-
+    master_twist_filt[0].rot -= master_twist_filt[0].rot / 10;
+    master_twist_filt[0].rot += master_twist_dvrk[0].rot / 10;
 
 
     geometry_msgs::Twist twist_foaw_msg;
@@ -303,7 +327,7 @@ void ACEnforcement::Master1PoseCurrentCallback(
     // take the pose from the arm frame to the task frame
     KDL::Frame frame;
     tf::poseMsgToKDL(msg->pose, frame);
-    master_pose_current[1] =  slave_frame_to_task_frame[1] * frame;
+    master_pose_current[1] = slave_frame_to_task_frame[1] * frame;
 
 }
 
@@ -324,29 +348,29 @@ void ACEnforcement::Master0TwistCallback(
         const geometry_msgs::TwistStamped::ConstPtr &msg) {
 
     tf::twistMsgToKDL(msg->twist, master_twist_dvrk[0]);
-    master_twist_dvrk[0] =  slave_frame_to_task_frame[0] * master_twist_dvrk[0];
+    master_twist_dvrk[0] = slave_frame_to_task_frame[0] * master_twist_dvrk[0];
 }
 
 void ACEnforcement::Master1TwistCallback(
         const geometry_msgs::TwistStamped::ConstPtr &msg) {
 
     tf::twistMsgToKDL(msg->twist, master_twist_dvrk[1]);
-    master_twist_dvrk[1] =  slave_frame_to_task_frame[1] * master_twist_dvrk[1];
+    master_twist_dvrk[1] = slave_frame_to_task_frame[1] * master_twist_dvrk[1];
 
 }
 
 void ACEnforcement::Master0StateCallback(
         const std_msgs::StringConstPtr &msg) {
-    master_state[0]  = msg->data;
+    master_state[0] = msg->data;
 }
 
 void ACEnforcement::Master1StateCallback(
         const std_msgs::StringConstPtr &msg) {
-    master_state[1]  = msg->data;
+    master_state[1] = msg->data;
 }
 
 void ACEnforcement::ACParams0Callback(
-        const active_constraints::ActiveConstraintParametersConstPtr &msg){
+        const active_constraints::ActiveConstraintParametersConstPtr &msg) {
 
     // isn't there a better way to do this?!
     ac_params[0].active = msg->active;
@@ -359,7 +383,7 @@ void ACEnforcement::ACParams0Callback(
     ac_params[0].max_torque = msg->max_torque;
 
     // will add params for other methods too
-    if(ac_params[0].method == 0){
+    if (ac_params[0].method == 0) {
         ac_elastic[0]->setParameters(ac_params[0].linear_elastic_coeff,
                                      ac_params[0].linear_damping_coeff,
                                      ac_params[0].angular_elastic_coeff,
@@ -371,7 +395,7 @@ void ACEnforcement::ACParams0Callback(
 
 
 void ACEnforcement::ACParams1Callback(
-        const active_constraints::ActiveConstraintParametersConstPtr &msg){
+        const active_constraints::ActiveConstraintParametersConstPtr &msg) {
 
     // isn't there a better way to do this?!
     ac_params[1].active = msg->active;
@@ -384,7 +408,7 @@ void ACEnforcement::ACParams1Callback(
     ac_params[1].max_torque = msg->max_torque;
 
     // will add params for other methods too
-    if(ac_params[1].method == 0){
+    if (ac_params[1].method == 0) {
         ac_elastic[1]->setParameters(ac_params[1].linear_elastic_coeff,
                                      ac_params[1].linear_damping_coeff,
                                      ac_params[1].angular_elastic_coeff,
@@ -394,52 +418,73 @@ void ACEnforcement::ACParams1Callback(
 }
 
 
-void ACEnforcement::FootPedalCoagCallback(const sensor_msgs::Joy & msg){
+void ACEnforcement::FootPedalCoagCallback(const sensor_msgs::Joy &msg) {
 
-    coag_pressed = (bool)msg.buttons[0];
-    new_coag_event = true;
+    coag_pressed = (bool) msg.buttons[0];
 
 }
 
-void ACEnforcement::FootPedalClutchCallback(const sensor_msgs::Joy & msg){
-    clutch_pressed = (bool)msg.buttons[0];
+void ACEnforcement::FootPedalClutchCallback(const sensor_msgs::Joy &msg) {
+    clutch_pressed = (bool) msg.buttons[0];
+    new_clutch_event = true;
 }
 
-void ACEnforcement::PublishWrenchInSlaveFrame(const int num_arm, const KDL::Vector f,
-                                              const KDL::Vector taw) {
+void
+ACEnforcement::PublishWrenchInSlaveFrame(const int num_arm, const KDL::Wrench wrench) {
 
+    // take to slave/master coordinate frame
+    KDL::Wrench wrench_kdl;
+    wrench_kdl =   slave_frame_to_task_frame[num_arm].M.Inverse() * wrench;
+
+    // copy to msg
     geometry_msgs::Wrench wrench_out;
-    KDL::Vector f_out, taw_out;
+    wrench_out.force.x = wrench_kdl.force[0];
+    wrench_out.force.y = wrench_kdl.force[1];
+    wrench_out.force.z = wrench_kdl.force[2];
 
-    f_out =  slave_frame_to_task_frame[num_arm].M.Inverse() * f;
-    taw_out =  slave_frame_to_task_frame[num_arm].M.Inverse() * taw;
+    wrench_out.torque.x = wrench_kdl.torque[0];
+    wrench_out.torque.y = wrench_kdl.torque[1];
+    wrench_out.torque.z = wrench_kdl.torque[2];
 
-    wrench_out.force.x = f_out[0];
-    wrench_out.force.y = f_out[1];
-    wrench_out.force.z = f_out[2];
-
-    wrench_out.torque.x = taw_out[0];
-    wrench_out.torque.y = taw_out[1];
-    wrench_out.torque.z = taw_out[2];
+    // publish
     publisher_wrench[num_arm].publish(wrench_out);
 
 }
 
 void ACEnforcement::StartTeleop() {
-    // first send the arms to home
+
+    ros::Rate a_second_sleep(1);
+    a_second_sleep.sleep();
+
+    // First send the arms to home
     std_msgs::Empty empty;
     pub_dvrk_home.publish(empty);
     ROS_INFO("Setting dvrk console state to Home.");
-    // wait till the arms are ready
-    ros::Rate loop(5);
-    while(master_state[0]!= "DVRK_READY"){
 
-        if(n_arms>1){
-            while(master_state[1]!= "DVRK_READY"){
+    // Wait till the arms are ready
+    ros::Rate loop(1);
+    uint count = 0;
+
+    while (master_state[0] != "DVRK_READY") {
+        ROS_INFO("Waiting for master 1 state to become DVRK_READY");
+
+        if (n_arms > 1) {
+            while (master_state[1] != "DVRK_READY") {
+                ROS_INFO("Waiting for master 2 state to become DVRK_READY");
+
                 loop.sleep();
                 ros::spinOnce();
             }
         }
+
+        //  try again after 10 seconds
+        if (count > 10) {
+            pub_dvrk_home.publish(empty);
+            ROS_INFO("Trying again to set dvrk console state to Home.");
+            count = 0;
+        }
+
+        count++;
         loop.sleep();
         ros::spinOnce();
     }
@@ -450,45 +495,41 @@ void ACEnforcement::StartTeleop() {
     pub_dvrk_console_teleop_enable.publish(teleop_bool);
     ROS_INFO("Starting teleoperation.");
 
+    std_msgs::Bool wrench_body_orientation_absolute;
+    wrench_body_orientation_absolute.data = 1;
+    publisher_wrench_body_orientation_absolute->publish(wrench_body_orientation_absolute);
 }
 
 
-
-
-double ACEnforcement::do_foaw_sample(double *posbuf, int size, int *k, double current_pos, int best,
-                                     const double noise_max)
-{
+double ACEnforcement::do_foaw_sample(double *posbuf, int size, int *k,
+                                     double current_pos, int best,
+                                     const double noise_max) {
     int i, j, l, bad;
     double b, ykj;
     double velocity = 0;
-    double T = 1/filtering_frequency;
+    double T = 1 / filtering_frequency;
 
 
     /* circular buffer */
-    *k = (*k+1)%size;
+    *k = (*k + 1) % size;
     posbuf[*k] = current_pos;
 
-    for (i=1; i<size; i++)
-    {
-        if (best)
-        {
+    for (i = 1; i < size; i++) {
+        if (best) {
             // best-fit-FOAW
             b = 0;
-            for (l=0; l<(i+1); l++)
-                b +=  i*posbuf[(*k-l+size)%size]
-                      - 2*posbuf[(*k-l+size)%size]*l;
-            b = b / (T*i*(i+1)*(i+2)/6);
-        }
-        else
+            for (l = 0; l < (i + 1); l++)
+                b += i * posbuf[(*k - l + size) % size]
+                     - 2 * posbuf[(*k - l + size) % size] * l;
+            b = b / (T * i * (i + 1) * (i + 2) / 6);
+        } else
             // end-fit-FOAW
-            b = (posbuf[*k]-posbuf[(*k-i+size)%size]) / (i*T);
+            b = (posbuf[*k] - posbuf[(*k - i + size) % size]) / (i * T);
         bad = 0;
-        for (j=1; j<i; j++)
-        {
-            ykj = posbuf[*k]-(b*j*T);
-            if (   (ykj < (posbuf[(*k-j+size)%size]-noise_max))
-                   || (ykj > (posbuf[(*k-j+size)%size]+noise_max)))
-            {
+        for (j = 1; j < i; j++) {
+            ykj = posbuf[*k] - (b * j * T);
+            if ((ykj < (posbuf[(*k - j + size) % size] - noise_max))
+                || (ykj > (posbuf[(*k - j + size) % size] + noise_max))) {
                 bad = 1;
                 break;
             }
@@ -500,6 +541,83 @@ double ACEnforcement::do_foaw_sample(double *posbuf, int size, int *k, double cu
     return velocity;
 }
 
+bool ACEnforcement::IsDesiredPoseNew(const int arm_number) {
+
+    // assuming once this method is called we can mark the data as used.
+    if (new_desired_pose_msg[arm_number]){
+        new_desired_pose_msg[arm_number] = false;
+        return true;
+    }
+    return false;
+
+}
+
+bool ACEnforcement::IsPublishingAllowed() {
+
+    if ( !clutch_pressed || (clutch_pressed && new_clutch_event) ){
+        new_clutch_event = false;
+        return true;
+    }
+    return false;
+
+}
+
+KDL::Wrench ACEnforcement::GetWrench(const int arm_number) {
+
+    KDL::Wrench wrench_out;
+
+    switch (ac_params[arm_number].method){
+
+        case ac_method::ViscoElastic :
+
+            // Calculate the force
+            ac_elastic[arm_number]->getForce(
+                    wrench_out.force, slave_pose_current[arm_number].p,
+                    tool_pose_desired[arm_number].p, master_twist_filt[arm_number].vel);
+
+            // calculate the torque
+            ac_elastic[arm_number]->getTorque(
+                    wrench_out.torque, slave_pose_current[arm_number].M,
+                    tool_pose_desired[arm_number].M, master_twist_filt[arm_number].rot);
+            break;
+
+        case ac_method::Plastic :
+
+            // Calculate the force
+            ac_plast[arm_number]->getForce(
+                    wrench_out.force, slave_pose_current[arm_number].p,
+                    tool_pose_desired[arm_number].p, master_twist_filt[arm_number].vel);
+
+            // No torque method for now
+            break;
+
+        case ac_method::PlasticRedirect:
+
+            // Calculate the force
+            ac_plast_redirect[arm_number]->getForce(
+                    wrench_out.force, slave_pose_current[arm_number].p,
+                    tool_pose_desired[arm_number].p, master_twist_filt[arm_number].vel);
+
+            // No torque method for now
+            break;
+
+        case ac_method::ViscousRedirect:
+
+            // Calculate the force
+            ac_visc_redirect[arm_number]->getForce(
+                    wrench_out.force, slave_pose_current[arm_number].p,
+                    tool_pose_desired[arm_number].p, master_twist_filt[arm_number].vel);
+
+            // No torque method for now
+            break;
+
+        default:
+            KDL::SetToZero(wrench_out);
+            break;
+    }
+
+    return wrench_out;
+}
 
 
 void conversions::VectorToPoseMsg(const std::vector<double> in_vec,
@@ -515,7 +633,8 @@ void conversions::VectorToPoseMsg(const std::vector<double> in_vec,
 
 }
 
-void conversions::VectorToKDLFrame(const std::vector<double> &in_vec, KDL::Frame &out_pose) {
+void conversions::VectorToKDLFrame(const std::vector<double> &in_vec,
+                                   KDL::Frame &out_pose) {
     geometry_msgs::Pose pose_msg;
     conversions::VectorToPoseMsg(in_vec, pose_msg);
     tf::poseMsgToKDL(pose_msg, out_pose);
@@ -523,9 +642,9 @@ void conversions::VectorToKDLFrame(const std::vector<double> &in_vec, KDL::Frame
 
 
 // operator overload to print out vectors
-std::ostream& operator<<(std::ostream& out, const std::vector<double>& vect){
+std::ostream &operator<<(std::ostream &out, const std::vector<double> &vect) {
     for (unsigned int iter = 0; iter < vect.size(); ++iter) {
-        out << "[" << iter <<"]: "<<vect.at(iter) << "\t";
+        out << "[" << iter << "]: " << vect.at(iter) << "\t";
     }
 
     return out;
@@ -533,10 +652,10 @@ std::ostream& operator<<(std::ostream& out, const std::vector<double>& vect){
 
 
 // operator overload to print out vectors
-std::ostream& operator<<(std::ostream& out, const KDL::Vector& vec){
+std::ostream &operator<<(std::ostream &out, const KDL::Vector &vec) {
 
     for (unsigned int iter = 0; iter < 3; ++iter) {
-        out << "[" << iter <<"]: "<<vec[iter] << "\t";
+        out << "[" << iter << "]: " << vec[iter] << "\t";
     }
 
     return out;

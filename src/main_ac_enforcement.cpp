@@ -52,12 +52,7 @@ int main(int argc, char *argv[]) {
 
 	ACEnforcement r(ros::this_node::getName());
 
-	std_msgs::String robot1_state_command;
-	std_msgs::Bool wrench_body_orientation_absolute;
-
-
-    KDL::Vector f_out[2];
-    KDL::Vector taw_out[2];
+    KDL::Wrench wrench_out[2];
 
     // the forces are published only when new desired poses are arrived.
     // so the frequency of the published forces is equal to the frequency
@@ -65,59 +60,32 @@ int main(int argc, char *argv[]) {
     // loop_rate is the frequency of spinning and checking for new messages
     ros::Rate loop_rate(200);
 
-	ros::Rate half_second_sleep(1);
-    half_second_sleep.sleep();
-
-//    robot1_state_command.data = "Home";
-//    ROS_INFO("Setting robot state to %s", robot1_state_command.data.c_str());
-//    r.pub_tool_1_set_state.publish(robot1_state_command);
-//
-//
-//    while(r.master_1_state !=  "DVRK_READY" && !g_request_shutdown){
-//        half_second_sleep.sleep();
-//        ros::spinOnce();
-//    }
-//
-//
-//
-//	r.pub_tool_1_set_state.publish(robot1_state_command);
-
     r.StartTeleop();
-    wrench_body_orientation_absolute.data = 1;
-	r.publisher_wrench_body_orientation_absolute->publish(wrench_body_orientation_absolute);
 
-	half_second_sleep.sleep();
 	ros::spinOnce();
 
-
 	bool first_run = true;
-	while(!g_request_shutdown){
+
+    while(!g_request_shutdown){
 
         for (int k = 0; k < r.n_arms; ++k) {
 
-            if(r.new_desired_pose_msg[k] && r.ac_params[k].active) {
+            if(r.IsDesiredPoseNew(k)) {
 
-                r.new_desired_pose_msg[k] = false;
+                // Generate non-zero wrenches when:
+                // 1- coag foot switch is pressed (master/slave are coupled)
+                // 2- and clutch is not pressed (to move master while slave is fixed)
+                // 3- and if we are told that active constraint should be active
+                if (r.coag_pressed && !r.clutch_pressed  && r.ac_params[k].active)
+                    wrench_out[k] = r.GetWrench(k);
+                else
+                    KDL::SetToZero(wrench_out[k]);
 
-                if (r.coag_pressed && !r.clutch_pressed) {
-                    r.ac_elastic[k]->getForce(f_out[k], r.slave_pose_current[k].p,
-                                              r.tool_pose_desired[k].p, r.master_twist_filt[k].vel);
-                    r.ac_elastic[k]->getTorque(taw_out[k], r.slave_pose_current[k].M,
-                                               r.tool_pose_desired[k].M, r.master_twist_filt[k].rot);
-                } else {
-                    KDL::SetToZero(f_out[k]);
-                    KDL::SetToZero(taw_out[k]);
-                }
+                if (r.IsPublishingAllowed() && r.master_state[k] == "DVRK_EFFORT_CARTESIAN")
+                    r.PublishWrenchInSlaveFrame(k, wrench_out[k]);
 
-                if (r.master_state[k] == "DVRK_EFFORT_CARTESIAN") {
-                    r.PublishWrenchInSlaveFrame(k, f_out[k], taw_out[k]);
-                }
-
-            }
-        }
-
-		//r.pub_wrench_body_orientation_absolute.publish(wrench_body_orientation_absolute);
-
+            } // if(new_desired_pose_msg[k])
+        } // for
 
 		loop_rate.sleep();
 		ros::spinOnce();
@@ -126,16 +94,14 @@ int main(int argc, char *argv[]) {
 
 	loop_rate.sleep();
 
-    r.PublishWrenchInSlaveFrame(0, KDL::Vector(0.0, 0.0, 0.0), KDL::Vector());
+    ROS_INFO("Setting wrenches to zero...");
+    r.PublishWrenchInSlaveFrame(0, KDL::Wrench());
 
-    ROS_INFO("Setting zero forces...");
-
-//	robot1_state_command.data = "DVRK_READY";
-//	ROS_INFO("Setting robot state to DVRK_GRAVITY_COMPENSATION");
-//	r.pub_tool_1_set_state.publish(robot1_state_command);
 	loop_rate.sleep();
-    std_msgs::Empty empty;
-    r.pub_dvrk_power_off.publish(empty);
+
+    //    ROS_INFO("Turning dvrk off...");
+    //    std_msgs::Empty empty;
+    //    r.pub_dvrk_power_off.publish(empty);
 
 	ROS_INFO("Ending Session...\n");
 	ros::shutdown();
