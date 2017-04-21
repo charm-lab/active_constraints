@@ -165,7 +165,7 @@ private:
 
 
 //-----------------------------------------------------------------------
-// VISCOUSE WITH REDIRECTION - INTRODUCED BY ENAYATI ET AL. 2016
+// VISCOUSE WITH REDIRECTION - ENAYATI ET AL. IROS 2016
 //-----------------------------------------------------------------------
 class acViscousRedirect: public ac{
 public:
@@ -194,7 +194,7 @@ private:
 
 
 //-----------------------------------------------------------------------
-// VISCOUSE WITH REDIRECTION - INTRODUCED BY ENAYATI ET AL. 2016
+// GOOD OLD VISCO-ELASTIC
 //-----------------------------------------------------------------------
 class acElastic: public ac{
 public:
@@ -212,9 +212,12 @@ public:
     void getTorque(KDL::Vector &t_out,  const KDL::Rotation rot_current,
                               const KDL::Rotation rot_desired, const KDL::Vector rot_vel);
     //!
-    void setKB(const double k, const double b){
+    void setParameters(const double k, const double b,
+                       const double kappa, const double c){
         k_ = k;
         b_ = b;
+        kappa_ = kappa;
+        c_ = c;
     }
 
 private:
@@ -226,8 +229,8 @@ private:
     double c_;
 
     //! internal variable the method needs to keep a track of
-//    KDL::Vector penet_last;
-//    double penet_vel_;
+    //    KDL::Vector penet_last;
+    //    double penet_vel_;
 
 };
 //-----------------------------------------------------------------------

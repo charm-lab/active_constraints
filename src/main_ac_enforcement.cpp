@@ -56,15 +56,14 @@ int main(int argc, char *argv[]) {
 	std_msgs::Bool wrench_body_orientation_absolute;
 
 
-
-    KDL::Vector f_out;
-    KDL::Vector taw_out;
+    KDL::Vector f_out[2];
+    KDL::Vector taw_out[2];
 
     // the forces are published only when new desired poses are arrived.
     // so the frequency of the published forces is equal to the frequency
     // of the desired pose topic
     // loop_rate is the frequency of spinning and checking for new messages
-    ros::Rate loop_rate(500);
+    ros::Rate loop_rate(200);
 
 	ros::Rate half_second_sleep(1);
     half_second_sleep.sleep();
@@ -91,46 +90,37 @@ int main(int argc, char *argv[]) {
 	ros::spinOnce();
 
 
-//    KDL::Rotation slave_to_master_tr;
-//    slave_to_master_tr.data[4]  = -1;
-//    slave_to_master_tr.data[8]  = -1;
-//    KDL::Rotation slave_to_master_tr_2;
-//    slave_to_master_tr_2.data[0]  = -1;
-//    slave_to_master_tr_2.data[4]  = -0.866025404;
-//    slave_to_master_tr_2.data[5]  = -0.5;
-//    slave_to_master_tr_2.data[7]  = -0.5;
-//    slave_to_master_tr_2.data[8]  =  0.866025404;
-
 	bool first_run = true;
 	while(!g_request_shutdown){
 
+        for (int k = 0; k < r.n_arms; ++k) {
 
-        if(r.new_desired_pose_msg[0]) {
-            r.new_desired_pose_msg[0] = false;
-            if (r.coag_pressed && !r.clutch_pressed) {
-                r.ac_elastic->getForce(f_out, r.slave_pose_current[0].p,
-                                    r.tool_pose_desired[0].p, r.master_twist_filt[0].vel);
-                r.ac_elastic->getTorque(taw_out, r.slave_pose_current[0].M,
-                                     r.tool_pose_desired[0].M, r.master_twist_filt[0].rot);
-            } else {
-                KDL::SetToZero(f_out);
-                KDL::SetToZero(taw_out);
+            if(r.new_desired_pose_msg[k] && r.ac_params[k].active) {
+
+                r.new_desired_pose_msg[k] = false;
+
+                if (r.coag_pressed && !r.clutch_pressed) {
+                    r.ac_elastic[k]->getForce(f_out[k], r.slave_pose_current[k].p,
+                                              r.tool_pose_desired[k].p, r.master_twist_filt[k].vel);
+                    r.ac_elastic[k]->getTorque(taw_out[k], r.slave_pose_current[k].M,
+                                               r.tool_pose_desired[k].M, r.master_twist_filt[k].rot);
+                } else {
+                    KDL::SetToZero(f_out[k]);
+                    KDL::SetToZero(taw_out[k]);
+                }
+
+                if (r.master_state[k] == "DVRK_EFFORT_CARTESIAN") {
+                    r.PublishWrenchInSlaveFrame(k, f_out[k], taw_out[k]);
+                }
+
             }
-
-            if (r.master_1_state == "DVRK_EFFORT_CARTESIAN") {
-                r.PublishWrenchInSlaveFrame(0, f_out, taw_out);
-            }
-
         }
-
 
 		//r.pub_wrench_body_orientation_absolute.publish(wrench_body_orientation_absolute);
 
 
 		loop_rate.sleep();
 		ros::spinOnce();
-
-		//		}
 
 	}
 
