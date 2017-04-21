@@ -2,7 +2,7 @@
  * ActiveConstraintsRos.cpp
  *
  *  Created on: Jan 23, 2017
- *      Author: nearlab
+ *      Author: nima
  */
 
 
@@ -16,21 +16,24 @@ ACEnforcement::ACEnforcement(std::string node_name)
 {
 
     // assign the callback functions
-    slave_pose_current_callbacks[0] = &ACEnforcement::Slave1PoseCurrentCallback;
-    slave_pose_current_callbacks[1] = &ACEnforcement::Slave2PoseCurrentCallback;
-    master_pose_current_callbacks[0] = &ACEnforcement::Master1PoseCurrentCallback;
-    master_pose_current_callbacks[1] = &ACEnforcement::Master2PoseCurrentCallback;
-    tool_pose_desired_callbacks[0] = &ACEnforcement::Tool1PoseDesiredCallback;
-    tool_pose_desired_callbacks[1] = &ACEnforcement::Tool2PoseDesiredCallback;
+    slave_pose_current_callbacks[0] = &ACEnforcement::Slave0PoseCurrentCallback;
+    slave_pose_current_callbacks[1] = &ACEnforcement::Slave1PoseCurrentCallback;
+    master_pose_current_callbacks[0] = &ACEnforcement::Master0PoseCurrentCallback;
+    master_pose_current_callbacks[1] = &ACEnforcement::Master1PoseCurrentCallback;
+    tool_pose_desired_callbacks[0] = &ACEnforcement::Tool0PoseDesiredCallback;
+    tool_pose_desired_callbacks[1] = &ACEnforcement::Tool1PoseDesiredCallback;
 
-    master_state_callback[0] = &ACEnforcement::Master1StateCallback;
-    master_state_callback[1] = &ACEnforcement::Master2StateCallback;
+    master_state_callback[0] = &ACEnforcement::Master0StateCallback;
+    master_state_callback[1] = &ACEnforcement::Master1StateCallback;
 
-    master_twist_callback[0] = &ACEnforcement::Master1TwistCallback;
-    master_twist_callback[1] = &ACEnforcement::Master2TwistCallback;
+    ac_params_callback[0] = &ACEnforcement::ACParams0Callback;
+    ac_params_callback[1] = &ACEnforcement::ACParams1Callback;
+
+    master_twist_callback[0] = &ACEnforcement::Master0TwistCallback;
+    master_twist_callback[1] = &ACEnforcement::Master1TwistCallback;
+
     new_desired_pose_msg[0] = false;
     new_desired_pose_msg[1] = false;
-
     SetupROSCommunications();
     posbuf = new double *[3];
     for(int i = 0; i < 3; i++)
@@ -149,6 +152,15 @@ void ACEnforcement::SetupROSCommunications() {
         ROS_INFO("[SUBSCRIBERS] Will subscribe to %s", param_name.str().c_str());
 
 
+        param_name.str("");
+        param_name << std::string("/") << master_names[n_arm]
+                   << "/active_constraint_param";
+        subscriber_master_state[n_arm] = n.subscribe(param_name.str(), 1,
+                                                     ac_params_callback[n_arm],
+                                                     this);
+        ROS_INFO("[SUBSCRIBERS] Will subscribe to %s", param_name.str().c_str());
+
+
         // the transformation from the coordinate frame of the slave (RCM) to the task coordinate
         // frame.
         param_name.str("");
@@ -188,10 +200,13 @@ void ACEnforcement::SetupROSCommunications() {
     ROS_INFO("angular_damping_coeff:  '%f'", c_coeff);
 
 
-
-    ac_elastic = new acElastic( f_max,  taw_max, k_coeff,  b_coeff, kappa_coeff, c_coeff);
-    ac_plast_redirect = new acPlastRedirect(f_max, 0.005, 0.002);
-    ac_visc_redirect = new acViscousRedirect(f_max, 70, 0.002);
+    // params will be overwritten if new message arrives
+    for (int j = 0; j < 2; ++j) {
+        ac_elastic[j] = new acElastic( f_max,  taw_max, k_coeff,  b_coeff, kappa_coeff, c_coeff);
+        // will add params for the other constraints soon ...
+        ac_plast_redirect[j] = new acPlastRedirect(f_max, 0.005, 0.002);
+        ac_visc_redirect[j] = new acViscousRedirect(f_max, 70, 0.002);
+    }
 
 //    // right tool twist subscriber
 //    std::string master_1_state_current_topic_name=
@@ -200,7 +215,7 @@ void ACEnforcement::SetupROSCommunications() {
 //
 //    // register MTMR pose subscriber
 //    subscriber_master_1_state = n.subscribe(master_1_state_current_topic_name, 1,
-//                                          &ACEnforcement::Master1StateCallback, this);
+//                                          &ACEnforcement::Master0StateCallback, this);
 
 
 
@@ -228,7 +243,7 @@ void ACEnforcement::SetupROSCommunications() {
 
 
 
-void ACEnforcement::Slave1PoseCurrentCallback(
+void ACEnforcement::Slave0PoseCurrentCallback(
         const geometry_msgs::PoseStamped::ConstPtr &msg) {
     // take the pose from the arm frame to the task frame
     KDL::Frame frame;
@@ -237,7 +252,7 @@ void ACEnforcement::Slave1PoseCurrentCallback(
 
 }
 
-void ACEnforcement::Slave2PoseCurrentCallback(
+void ACEnforcement::Slave1PoseCurrentCallback(
         const geometry_msgs::PoseStamped::ConstPtr &msg) {
     // take the pose from the arm frame to the task frame
     KDL::Frame frame;
@@ -246,7 +261,7 @@ void ACEnforcement::Slave2PoseCurrentCallback(
 }
 
 
-void ACEnforcement::Master1PoseCurrentCallback(
+void ACEnforcement::Master0PoseCurrentCallback(
         const geometry_msgs::PoseStamped::ConstPtr &msg) {
     // take the pose from the arm frame to the task frame
     KDL::Frame frame;
@@ -283,7 +298,7 @@ void ACEnforcement::Master1PoseCurrentCallback(
 
 }
 
-void ACEnforcement::Master2PoseCurrentCallback(
+void ACEnforcement::Master1PoseCurrentCallback(
         const geometry_msgs::PoseStamped::ConstPtr &msg) {
     // take the pose from the arm frame to the task frame
     KDL::Frame frame;
@@ -292,27 +307,27 @@ void ACEnforcement::Master2PoseCurrentCallback(
 
 }
 
-void ACEnforcement::Tool1PoseDesiredCallback(
+void ACEnforcement::Tool0PoseDesiredCallback(
         const geometry_msgs::PoseStamped::ConstPtr &msg) {
     tf::poseMsgToKDL(msg->pose, tool_pose_desired[0]);
     new_desired_pose_msg[0] = true;
 }
 
-void ACEnforcement::Tool2PoseDesiredCallback(
+void ACEnforcement::Tool1PoseDesiredCallback(
         const geometry_msgs::PoseStamped::ConstPtr &msg) {
     tf::poseMsgToKDL(msg->pose, tool_pose_desired[1]);
     new_desired_pose_msg[1] = true;
 
 }
 
-void ACEnforcement::Master1TwistCallback(
+void ACEnforcement::Master0TwistCallback(
         const geometry_msgs::TwistStamped::ConstPtr &msg) {
 
     tf::twistMsgToKDL(msg->twist, master_twist_dvrk[0]);
     master_twist_dvrk[0] =  slave_frame_to_task_frame[0] * master_twist_dvrk[0];
 }
 
-void ACEnforcement::Master2TwistCallback(
+void ACEnforcement::Master1TwistCallback(
         const geometry_msgs::TwistStamped::ConstPtr &msg) {
 
     tf::twistMsgToKDL(msg->twist, master_twist_dvrk[1]);
@@ -320,15 +335,64 @@ void ACEnforcement::Master2TwistCallback(
 
 }
 
-void ACEnforcement::Master1StateCallback(
+void ACEnforcement::Master0StateCallback(
         const std_msgs::StringConstPtr &msg) {
-    master_1_state  = msg->data;
+    master_state[0]  = msg->data;
 }
 
-void ACEnforcement::Master2StateCallback(
+void ACEnforcement::Master1StateCallback(
         const std_msgs::StringConstPtr &msg) {
-    master_2_state  = msg->data;
+    master_state[1]  = msg->data;
 }
+
+void ACEnforcement::ACParams0Callback(
+        const active_constraints::ActiveConstraintParametersConstPtr &msg){
+
+    // isn't there a better way to do this?!
+    ac_params[0].active = msg->active;
+    ac_params[0].method = msg->method;
+    ac_params[0].angular_damping_coeff = msg->angular_damping_coeff;
+    ac_params[0].angular_elastic_coeff = msg->angular_elastic_coeff;
+    ac_params[0].linear_damping_coeff = msg->linear_damping_coeff;
+    ac_params[0].linear_elastic_coeff = msg->linear_elastic_coeff;
+    ac_params[0].max_force = msg->max_force;
+    ac_params[0].max_torque = msg->max_torque;
+
+    // will add params for other methods too
+    if(ac_params[0].method == 0){
+        ac_elastic[0]->setParameters(ac_params[0].linear_elastic_coeff,
+                                     ac_params[0].linear_damping_coeff,
+                                     ac_params[0].angular_elastic_coeff,
+                                     ac_params[0].angular_damping_coeff);
+    }
+
+
+}
+
+
+void ACEnforcement::ACParams1Callback(
+        const active_constraints::ActiveConstraintParametersConstPtr &msg){
+
+    // isn't there a better way to do this?!
+    ac_params[1].active = msg->active;
+    ac_params[1].method = msg->method;
+    ac_params[1].angular_damping_coeff = msg->angular_damping_coeff;
+    ac_params[1].angular_elastic_coeff = msg->angular_elastic_coeff;
+    ac_params[1].linear_damping_coeff = msg->linear_damping_coeff;
+    ac_params[1].linear_elastic_coeff = msg->linear_elastic_coeff;
+    ac_params[1].max_force = msg->max_force;
+    ac_params[1].max_torque = msg->max_torque;
+
+    // will add params for other methods too
+    if(ac_params[1].method == 0){
+        ac_elastic[1]->setParameters(ac_params[1].linear_elastic_coeff,
+                                     ac_params[1].linear_damping_coeff,
+                                     ac_params[1].angular_elastic_coeff,
+                                     ac_params[1].angular_damping_coeff);
+    }
+
+}
+
 
 void ACEnforcement::FootPedalCoagCallback(const sensor_msgs::Joy & msg){
 
@@ -368,10 +432,10 @@ void ACEnforcement::StartTeleop() {
     ROS_INFO("Setting dvrk console state to Home.");
     // wait till the arms are ready
     ros::Rate loop(5);
-    while(master_1_state!= "DVRK_READY"){
+    while(master_state[0]!= "DVRK_READY"){
 
         if(n_arms>1){
-            while(master_2_state!= "DVRK_READY"){
+            while(master_state[1]!= "DVRK_READY"){
                 loop.sleep();
                 ros::spinOnce();
             }
