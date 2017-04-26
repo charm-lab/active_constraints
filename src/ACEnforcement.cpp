@@ -49,6 +49,12 @@ ACEnforcement::ACEnforcement(std::string node_name)
         }
     }
 
+    foaw_i = new int *[2];
+    for (int k = 0; k < 2; ++k) {
+        foaw_i[k] = new int[3];
+        memset(foaw_i[k], 0, sizeof(float) * 3);
+    }
+
 
 }
 
@@ -296,15 +302,15 @@ void ACEnforcement::Master0PoseCurrentCallback(
     master_pose_current[0].M.GetRPY(r, p, y);
 
     master_twist_filt[0].vel[0] = do_foaw_sample(foaw_position_buffer[0][0],
-                                                 foaw_n, &foaw_i_0[0],
+                                                 foaw_n, &foaw_i[0][0],
                                                  master_pose_current[0].p[0], 1,
                                                  0.001);
     master_twist_filt[0].vel[1] = do_foaw_sample(foaw_position_buffer[0][1],
-                                                 foaw_n, &foaw_i_0[1],
+                                                 foaw_n, &foaw_i[0][1],
                                                  master_pose_current[0].p[1], 1,
                                                  0.001);
     master_twist_filt[0].vel[2] = do_foaw_sample(foaw_position_buffer[0][2],
-                                                 foaw_n, &foaw_i_0[2],
+                                                 foaw_n, &foaw_i[0][2],
                                                  master_pose_current[0].p[2], 1,
                                                  0.001);
 
@@ -336,15 +342,15 @@ void ACEnforcement::Master1PoseCurrentCallback(
     master_pose_current[1].M.GetRPY(r, p, y);
 
     master_twist_filt[1].vel[0] = do_foaw_sample(foaw_position_buffer[1][0],
-                                                 foaw_n, &foaw_i_1[0],
+                                                 foaw_n, &foaw_i[1][0],
                                                  master_pose_current[1].p[0], 1,
                                                  0.001);
     master_twist_filt[1].vel[1] = do_foaw_sample(foaw_position_buffer[1][1],
-                                                 foaw_n, &foaw_i_1[1],
+                                                 foaw_n, &foaw_i[1][1],
                                                  master_pose_current[1].p[1], 1,
                                                  0.001);
     master_twist_filt[1].vel[2] = do_foaw_sample(foaw_position_buffer[1][2],
-                                                 foaw_n, &foaw_i_1[2],
+                                                 foaw_n, &foaw_i[1][2],
                                                  master_pose_current[1].p[2], 1,
                                                  0.001);
 
