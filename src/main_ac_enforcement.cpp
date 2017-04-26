@@ -64,8 +64,6 @@ int main(int argc, char *argv[]) {
 
 	ros::spinOnce();
 
-	bool first_run = true;
-
     while(!g_request_shutdown){
 
         for (int k = 0; k < r.n_arms; ++k) {

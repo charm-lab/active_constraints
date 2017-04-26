@@ -188,8 +188,9 @@ private:
     // velocity filtering
     double filtering_frequency;
     const int foaw_n = 15;
-    int foaw_i[6] = {0, 0 ,0, 0, 0, 0};
-    double ** foaw_position_buffer;
+    int foaw_i_0[3] = {0, 0 ,0};
+    int foaw_i_1[3] = {0, 0 ,0};
+    double *** foaw_position_buffer;
 
     // Tool poses are all in task coordinate frame
     bool new_desired_pose_msg[2];

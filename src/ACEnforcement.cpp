@@ -40,13 +40,15 @@ ACEnforcement::ACEnforcement(std::string node_name)
     SetupROSCommunications();
 
     // Initialize velocity estimation variables
-    foaw_position_buffer = new double *[3];
-    for (int i = 0; i < 3; i++)
-        foaw_position_buffer[i] = new double[foaw_n];
+    foaw_position_buffer = new double **[2];
+    for (int j = 0; j < 2; ++j) {
+        foaw_position_buffer[j] = new double *[3];
+        for (int i = 0; i < 3; i++) {
+            foaw_position_buffer[j][i] = new double [foaw_n];
+            memset(foaw_position_buffer[j][i], 0, sizeof(float) * foaw_n);
+        }
+    }
 
-    memset(foaw_position_buffer[0], 0, sizeof(float) * foaw_n);
-    memset(foaw_position_buffer[1], 0, sizeof(float) * foaw_n);
-    memset(foaw_position_buffer[2], 0, sizeof(float) * foaw_n);
 
 }
 
@@ -293,22 +295,22 @@ void ACEnforcement::Master0PoseCurrentCallback(
     double r, p, y;
     master_pose_current[0].M.GetRPY(r, p, y);
 
-    master_twist_filt[0].vel[0] = do_foaw_sample(foaw_position_buffer[0],
-                                                 foaw_n, &foaw_i[0],
+    master_twist_filt[0].vel[0] = do_foaw_sample(foaw_position_buffer[0][0],
+                                                 foaw_n, &foaw_i_0[0],
                                                  master_pose_current[0].p[0], 1,
                                                  0.001);
-    master_twist_filt[0].vel[1] = do_foaw_sample(foaw_position_buffer[1],
-                                                 foaw_n, &foaw_i[1],
+    master_twist_filt[0].vel[1] = do_foaw_sample(foaw_position_buffer[0][1],
+                                                 foaw_n, &foaw_i_0[1],
                                                  master_pose_current[0].p[1], 1,
                                                  0.001);
-    master_twist_filt[0].vel[2] = do_foaw_sample(foaw_position_buffer[2],
-                                                 foaw_n, &foaw_i[2],
+    master_twist_filt[0].vel[2] = do_foaw_sample(foaw_position_buffer[0][2],
+                                                 foaw_n, &foaw_i_0[2],
                                                  master_pose_current[0].p[2], 1,
                                                  0.001);
 
     // just averaging the angular velocity
-    master_twist_filt[0].rot -= master_twist_filt[0].rot / 10;
-    master_twist_filt[0].rot += master_twist_dvrk[0].rot / 10;
+    master_twist_filt[0].rot -= master_twist_filt[0].rot / 8;
+    master_twist_filt[0].rot += master_twist_dvrk[0].rot / 8;
 
 
     geometry_msgs::Twist twist_foaw_msg;
@@ -328,6 +330,28 @@ void ACEnforcement::Master1PoseCurrentCallback(
     KDL::Frame frame;
     tf::poseMsgToKDL(msg->pose, frame);
     master_pose_current[1] = slave_frame_to_task_frame[1] * frame;
+
+
+    double r, p, y;
+    master_pose_current[1].M.GetRPY(r, p, y);
+
+    master_twist_filt[1].vel[0] = do_foaw_sample(foaw_position_buffer[1][0],
+                                                 foaw_n, &foaw_i_1[0],
+                                                 master_pose_current[1].p[0], 1,
+                                                 0.001);
+    master_twist_filt[1].vel[1] = do_foaw_sample(foaw_position_buffer[1][1],
+                                                 foaw_n, &foaw_i_1[1],
+                                                 master_pose_current[1].p[1], 1,
+                                                 0.001);
+    master_twist_filt[1].vel[2] = do_foaw_sample(foaw_position_buffer[1][2],
+                                                 foaw_n, &foaw_i_1[2],
+                                                 master_pose_current[1].p[2], 1,
+                                                 0.001);
+
+    // just averaging the angular velocity
+    master_twist_filt[1].rot -= master_twist_filt[1].rot / 8;
+    master_twist_filt[1].rot += master_twist_dvrk[1].rot / 8;
+
 
 }
 
@@ -497,7 +521,11 @@ void ACEnforcement::StartTeleop() {
 
     std_msgs::Bool wrench_body_orientation_absolute;
     wrench_body_orientation_absolute.data = 1;
-    publisher_wrench_body_orientation_absolute->publish(wrench_body_orientation_absolute);
+    publisher_wrench_body_orientation_absolute[0].publish
+            (wrench_body_orientation_absolute);
+    publisher_wrench_body_orientation_absolute[1].publish
+            (wrench_body_orientation_absolute);
+
 }
 
 
