@@ -529,7 +529,8 @@ void ACEnforcement::StartTeleop() {
     wrench_body_orientation_absolute.data = 1;
     publisher_wrench_body_orientation_absolute[0].publish
             (wrench_body_orientation_absolute);
-    publisher_wrench_body_orientation_absolute[1].publish
+    if(n_arms==2)
+        publisher_wrench_body_orientation_absolute[1].publish
             (wrench_body_orientation_absolute);
 
 }
