@@ -400,7 +400,7 @@ void ACEnforcement::Master1StateCallback(
 }
 
 void ACEnforcement::ACParams0Callback(
-        const active_constraints::ActiveConstraintParametersConstPtr &msg) {
+        const custom_msgs::ActiveConstraintParametersConstPtr &msg) {
 
     // isn't there a better way to do this?!
     ac_params[0].active = msg->active;
@@ -425,7 +425,7 @@ void ACEnforcement::ACParams0Callback(
 
 
 void ACEnforcement::ACParams1Callback(
-        const active_constraints::ActiveConstraintParametersConstPtr &msg) {
+        const custom_msgs::ActiveConstraintParametersConstPtr &msg) {
 
     // isn't there a better way to do this?!
     ac_params[1].active = msg->active;
