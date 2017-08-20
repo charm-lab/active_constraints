@@ -58,7 +58,7 @@ int main(int argc, char *argv[]) {
     // so the frequency of the published forces is equal to the frequency
     // of the desired pose topic
     // loop_rate is the frequency of spinning and checking for new messages
-    ros::Rate loop_rate(200);
+    ros::Rate loop_rate(500);
 
     r.StartTeleop();
 

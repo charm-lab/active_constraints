@@ -212,8 +212,16 @@ public:
     void getTorque(KDL::Vector &t_out,  const KDL::Rotation rot_current,
                               const KDL::Rotation rot_desired, const KDL::Vector rot_vel);
     //!
-    void setParameters(const double k, const double b,
-                       const double kappa, const double c){
+    void setParameters(
+    const double f_max,
+    const double taw_max,
+    const double k,
+    const double b,
+    const double kappa,
+    const double c
+) {
+        F_MAX_ = f_max;
+        TAW_MAX_ = taw_max;
         k_ = k;
         b_ = b;
         kappa_ = kappa;

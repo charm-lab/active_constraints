@@ -210,7 +210,8 @@ private:
     ros::Publisher pub_dvrk_console_teleop_enable;
     ros::Publisher pub_dvrk_home;
     ros::Publisher pub_dvrk_power_off;
-    ros::Publisher pub_twist;
+    ros::Publisher *pub_twist_filt;
+    ros::Publisher pub_twist_1;
     ros::Publisher *publisher_wrench;
     ros::Publisher *publisher_wrench_body_orientation_absolute;
 

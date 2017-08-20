@@ -83,6 +83,7 @@ void ACEnforcement::SetupROSCommunications() {
     // Subscribers and publishers
     publisher_wrench = new ros::Publisher[n_arms];
     publisher_wrench_body_orientation_absolute = new ros::Publisher[n_arms];
+    pub_twist_filt = new ros::Publisher[n_arms];
     subscriber_slave_pose_current = new ros::Subscriber[n_arms];
     subscriber_master_pose_current = new ros::Subscriber[n_arms];
     subscriber_tool_pose_desired = new ros::Subscriber[n_arms];
@@ -125,7 +126,7 @@ void ACEnforcement::SetupROSCommunications() {
 
         // subscribers
         param_name.str("");
-        param_name << std::string("/") << slave_names[n_arm]
+        param_name << std::string("/atar/") << slave_names[n_arm]
                    << "/tool_pose_desired";
         subscriber_tool_pose_desired[n_arm] = n.subscribe(param_name.str(), 1,
                                                           tool_pose_desired_callbacks[n_arm],
@@ -162,10 +163,8 @@ void ACEnforcement::SetupROSCommunications() {
         param_name.str("");
         param_name << std::string("/dvrk/") << master_names[n_arm]
                    << "/twist_body_current";
-        subscriber_slaves_current_twist[n_arm] = n.subscribe(param_name.str(),
-                                                             1,
-                                                             master_twist_callback[n_arm],
-                                                             this);
+        subscriber_slaves_current_twist[n_arm] = n.subscribe(param_name.str()
+            ,1, master_twist_callback[n_arm], this);
         ROS_INFO("[SUBSCRIBERS] Will subscribe to %s",
                  param_name.str().c_str());
 
@@ -180,7 +179,7 @@ void ACEnforcement::SetupROSCommunications() {
 
 
         param_name.str("");
-        param_name << std::string("/") << master_names[n_arm]
+        param_name << std::string("/atar/") << master_names[n_arm]
                    << "/active_constraint_param";
         subscriber_ac_params[n_arm] = n.subscribe(param_name.str(), 1,
                                                   ac_params_callback[n_arm],
@@ -189,21 +188,28 @@ void ACEnforcement::SetupROSCommunications() {
                  param_name.str().c_str());
 
 
-        // the transformation from the coordinate frame of the slave (RCM) to the task coordinate
-        // frame.
+        // ASSUMING THAT EVERYTHING IS IN TE SAME FRAME ALREADy
+        //// the transformation from the coordinate frame of the slave (RCM) to the task coordinate
+        //// frame.
+        //param_name.str("");
+        //param_name << (std::string) "/calibrations/world_frame_to_"
+        //           << slave_names[n_arm] << "_frame";
+        //std::vector<double> vect_temp = std::vector<double>(7, 0.0);
+        //if (n.getParam(param_name.str(), vect_temp)) {
+        //    conversions::VectorToKDLFrame(vect_temp,
+        //                                  slave_frame_to_task_frame[n_arm]);
+        //    // param is from task to slave, we want the inverse
+        //    slave_frame_to_task_frame[n_arm] = slave_frame_to_task_frame[n_arm].Inverse();
+        //} else
+        //    ROS_ERROR("Parameter %s is needed.", param_name.str().c_str());
+
+
         param_name.str("");
-        param_name << (std::string) "/calibrations/task_frame_to_"
-                   << slave_names[n_arm] << "_frame";
-        std::vector<double> vect_temp = std::vector<double>(7, 0.0);
-        if (n.getParam(param_name.str(), vect_temp)) {
-            conversions::VectorToKDLFrame(vect_temp,
-                                          slave_frame_to_task_frame[n_arm]);
-            // param is from task to slave, we want the inverse
-            slave_frame_to_task_frame[n_arm] = slave_frame_to_task_frame[n_arm].Inverse();
-        } else
-            ROS_ERROR("Parameter %s is needed.", param_name.str().c_str());
-
-
+        param_name <<  std::string("/atar/")
+                   << master_names[n_arm] <<"/twist_filtered";
+        pub_twist_filt[n_arm] = n.advertise<geometry_msgs::Twist>(
+            param_name.str().c_str(), 1);
+        ROS_INFO("Will publish on %s", param_name.str().c_str());
     }
 
     ////////////////////////////
@@ -268,8 +274,6 @@ void ACEnforcement::SetupROSCommunications() {
                                                       1);
 
 
-    pub_twist = n.advertise<geometry_msgs::Twist>("/twist", 1);
-
 }
 
 
@@ -326,7 +330,7 @@ void ACEnforcement::Master0PoseCurrentCallback(
     twist_foaw_msg.angular.x = master_twist_filt[0].rot[0];
     twist_foaw_msg.angular.y = master_twist_filt[0].rot[1];
     twist_foaw_msg.angular.z = master_twist_filt[0].rot[2];
-    pub_twist.publish(twist_foaw_msg);
+    pub_twist_filt[0].publish(twist_foaw_msg);
 
 }
 
@@ -358,6 +362,14 @@ void ACEnforcement::Master1PoseCurrentCallback(
     master_twist_filt[1].rot -= master_twist_filt[1].rot / 8;
     master_twist_filt[1].rot += master_twist_dvrk[1].rot / 8;
 
+    geometry_msgs::Twist twist_foaw_msg;
+    twist_foaw_msg.linear.x = master_twist_filt[1].vel[0];
+    twist_foaw_msg.linear.y = master_twist_filt[1].vel[1];
+    twist_foaw_msg.linear.z = master_twist_filt[1].vel[2];
+    twist_foaw_msg.angular.x = master_twist_filt[1].rot[0];
+    twist_foaw_msg.angular.y = master_twist_filt[1].rot[1];
+    twist_foaw_msg.angular.z = master_twist_filt[1].rot[2];
+    pub_twist_filt[1].publish(twist_foaw_msg);
 
 }
 
@@ -414,10 +426,14 @@ void ACEnforcement::ACParams0Callback(
 
     // will add params for other methods too
     if (ac_params[0].method == 0) {
-        ac_elastic[0]->setParameters(ac_params[0].linear_elastic_coeff,
-                                     ac_params[0].linear_damping_coeff,
-                                     ac_params[0].angular_elastic_coeff,
-                                     ac_params[0].angular_damping_coeff);
+        ac_elastic[0]->setParameters(
+            ac_params[0].max_force,
+            ac_params[0].max_torque,
+            ac_params[0].linear_elastic_coeff,
+            ac_params[0].linear_damping_coeff,
+            ac_params[0].angular_elastic_coeff,
+            ac_params[0].angular_damping_coeff
+        );
     }
 
 
@@ -430,19 +446,23 @@ void ACEnforcement::ACParams1Callback(
     // isn't there a better way to do this?!
     ac_params[1].active = msg->active;
     ac_params[1].method = msg->method;
+    ac_params[1].linear_elastic_coeff = msg->linear_elastic_coeff;
+    ac_params[1].linear_damping_coeff = msg->linear_damping_coeff;
     ac_params[1].angular_damping_coeff = msg->angular_damping_coeff;
     ac_params[1].angular_elastic_coeff = msg->angular_elastic_coeff;
-    ac_params[1].linear_damping_coeff = msg->linear_damping_coeff;
-    ac_params[1].linear_elastic_coeff = msg->linear_elastic_coeff;
     ac_params[1].max_force = msg->max_force;
     ac_params[1].max_torque = msg->max_torque;
 
     // will add params for other methods too
     if (ac_params[1].method == 0) {
-        ac_elastic[1]->setParameters(ac_params[1].linear_elastic_coeff,
-                                     ac_params[1].linear_damping_coeff,
-                                     ac_params[1].angular_elastic_coeff,
-                                     ac_params[1].angular_damping_coeff);
+        ac_elastic[1]->setParameters(
+            ac_params[1].max_force,
+            ac_params[1].max_torque,
+            ac_params[1].linear_elastic_coeff,
+            ac_params[1].linear_damping_coeff,
+            ac_params[1].angular_elastic_coeff,
+            ac_params[1].angular_damping_coeff
+        );
     }
 
 }
@@ -485,45 +505,45 @@ void ACEnforcement::StartTeleop() {
 
     ros::Rate a_second_sleep(1);
     a_second_sleep.sleep();
-
-    // First send the arms to home
-    std_msgs::Empty empty;
-    pub_dvrk_home.publish(empty);
-    ROS_INFO("Setting dvrk console state to Home.");
-
-    // Wait till the arms are ready
-    ros::Rate loop(1);
-    uint count = 0;
-
-    while (master_state[0] != "DVRK_READY") {
-        ROS_INFO("Waiting for master 1 state to become DVRK_READY");
-
-        if (n_arms > 1) {
-            while (master_state[1] != "DVRK_READY") {
-                ROS_INFO("Waiting for master 2 state to become DVRK_READY");
-
-                loop.sleep();
-                ros::spinOnce();
-            }
-        }
-
-        //  try again after 10 seconds
-        if (count > 10) {
-            pub_dvrk_home.publish(empty);
-            ROS_INFO("Trying again to set dvrk console state to Home.");
-            count = 0;
-        }
-
-        count++;
-        loop.sleep();
-        ros::spinOnce();
-    }
-    // enable teleop
-
-    std_msgs::Bool teleop_bool;
-    teleop_bool.data = 1;
-    pub_dvrk_console_teleop_enable.publish(teleop_bool);
-    ROS_INFO("Starting teleoperation.");
+    //
+    //// First send the arms to home
+    //std_msgs::Empty empty;
+    //pub_dvrk_home.publish(empty);
+    //ROS_INFO("Setting dvrk console state to Home.");
+    //
+    //// Wait till the arms are ready
+    //ros::Rate loop(1);
+    //uint count = 0;
+    //
+    //while (master_state[0] != "DVRK_READY") {
+    //    ROS_INFO("Waiting for master 1 state to become DVRK_READY");
+    //
+    //    if (n_arms > 1) {
+    //        while (master_state[1] != "DVRK_READY") {
+    //            ROS_INFO("Waiting for master 2 state to become DVRK_READY");
+    //
+    //            loop.sleep();
+    //            ros::spinOnce();
+    //        }
+    //    }
+    //
+    //    //  try again after 10 seconds
+    //    if (count > 10) {
+    //        pub_dvrk_home.publish(empty);
+    //        ROS_INFO("Trying again to set dvrk console state to Home.");
+    //        count = 0;
+    //    }
+    //
+    //    count++;
+    //    loop.sleep();
+    //    ros::spinOnce();
+    //}
+    //// enable teleop
+    //
+    //std_msgs::Bool teleop_bool;
+    //teleop_bool.data = 1;
+    //pub_dvrk_console_teleop_enable.publish(teleop_bool);
+    //ROS_INFO("Starting teleoperation.");
 
     std_msgs::Bool wrench_body_orientation_absolute;
     wrench_body_orientation_absolute.data = 1;
