@@ -28,7 +28,7 @@
 #include <kdl/frames.hpp>
 #include <tf_conversions/tf_kdl.h>
 #include "ActiveConstraintEnforcementMethods.hpp"
-#include "active_constraints/ActiveConstraintParameters.h"
+#include "custom_msgs/ActiveConstraintParameters.h"
 
 /**
  * \class ACEnforcement
@@ -102,7 +102,7 @@ public:
     bool clutch_pressed;
     bool new_clutch_event;
 
-    active_constraints::ActiveConstraintParameters ac_params[2];
+    custom_msgs::ActiveConstraintParameters ac_params[2];
 
 private:
 
@@ -136,10 +136,10 @@ private:
     void Master1StateCallback(const std_msgs::StringConstPtr &msg);
 
     void ACParams0Callback(
-            const active_constraints::ActiveConstraintParametersConstPtr &msg);
+            const custom_msgs::ActiveConstraintParametersConstPtr &msg);
 
     void ACParams1Callback(
-            const active_constraints::ActiveConstraintParametersConstPtr &msg);
+            const custom_msgs::ActiveConstraintParametersConstPtr &msg);
 
     void FootPedalCoagCallback(const sensor_msgs::Joy &msg);
 
@@ -168,7 +168,7 @@ private:
 
     // two function pointers for master state callbacks
     void (ACEnforcement::*ac_params_callback[2])
-            (const active_constraints::ActiveConstraintParametersConstPtr &msg);
+            (const custom_msgs::ActiveConstraintParametersConstPtr &msg);
 
     double do_foaw_sample(double *posbuf, int size, int *k,
                           double current_pos, int best, const double noise);

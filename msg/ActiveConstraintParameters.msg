@@ -1,8 +1,0 @@
-bool active
-uint8 method
-float64 max_force
-float64 max_torque
-float64 linear_elastic_coeff
-float64 linear_damping_coeff
-float64 angular_elastic_coeff
-float64 angular_damping_coeff
