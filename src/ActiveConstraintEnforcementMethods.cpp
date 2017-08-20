@@ -48,12 +48,12 @@
 using namespace toolbox;
 
 
-//-----------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // SIMULATED PLASTICY INTRODUCED BY KIKUUWE ET AL. 2008
-//-----------------------------------------------------------------------
-//-----------------------------------------------------------------------
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Constructor
-//-----------------------------------------------------------------------
+//------------------------------------------------------------------------------
 acPlast::acPlast(const double F_MAX,
                  const double ELASTIC_LENGTH,
                  const double BOUNDARY_THRESHOLD ){
@@ -65,10 +65,10 @@ acPlast::acPlast(const double F_MAX,
 
 }
 
-//-----------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // FORCE GENERATION FOLLOWING THE EQUATIONS DESCRIBED IN THE
 // CORRESPONDING PAPER
-//-----------------------------------------------------------------------
+//------------------------------------------------------------------------------
 
 void acPlast::getForce(KDL::Vector &f_out,
                        const KDL::Vector p_tool,
@@ -85,16 +85,17 @@ void acPlast::getForce(KDL::Vector &f_out,
 
     KDL::Vector q_last = q_;
     double cte = Kk + (Bk/T);
-    KDL::Vector ps = p_tool + (Bk * (q_ - p_tool_last_) / (Kk * T + Bk)); // p_tool-d = p_last
+    KDL::Vector ps = p_tool + (Bk * (q_ - p_tool_last_)
+                               / (Kk * T + Bk)); // p_tool-d = p_last
     KDL::Vector ki = ps - cp;
     KDL::Vector n = ki;
     normalizeSafe(n, KDL::Vector(0.0,0.0,0.0));
 
-    double a1 = saturate(0.0, dot(n,ki), (R/cte));
-    double a2 = saturate(0.0, -dot(n,ki), (R/cte));
+    double a1 = SATURATE(0.0, dot(n,ki), (R/cte));
+    double a2 = SATURATE(0.0, -dot(n,ki), (R/cte));
 
     KDL::Vector e = q_last - ps;
-    double a3 = saturate(-a1, dot(n,e), a2);
+    double a3 = SATURATE(-a1, dot(n,e), a2);
 
     //I-n*n'
     KDL::Vector In1 = KDL::Vector(1 - n[0]*n[0], 0 - n[0]*n[1], 0 - n[0]*n[2]);
@@ -102,7 +103,8 @@ void acPlast::getForce(KDL::Vector &f_out,
     KDL::Vector In3 = KDL::Vector(0 - n[2]*n[0], 0 - n[2]*n[1], 1 - n[2]*n[2]);
     //(I-n*n')*e
     KDL::Vector mat = KDL::Vector(dot(In1,e), dot(In2,e), dot(In3,e));
-    double m = std::max(1.0,( ( cte/F ) * sqrt( ( e.Norm()*e.Norm() ) - ( dot(n,e)*dot(n,e) ) ) ) );
+    double m = std::max(1.0,( ( cte/F ) *
+                              sqrt( ( e.Norm()*e.Norm() ) - ( dot(n,e)*dot(n,e) ) ) ) );
 
     q_ = ps + n * a3 + mat/m;
 
@@ -119,12 +121,12 @@ void acPlast::getForce(KDL::Vector &f_out,
 }
 
 
-//-----------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // PLASTIC WITH MOTION REDIRECTION - INTRODUCED BY BOWYER ET AL. 2013
-//-----------------------------------------------------------------------
-//-----------------------------------------------------------------------
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Constructor
-//-----------------------------------------------------------------------
+//------------------------------------------------------------------------------
 acPlastRedirect::acPlastRedirect(const double F_MAX,
                                  const double ELASTIC_LENGTH,
                                  const double BOUNDARY_THRESHOLD)
@@ -134,10 +136,10 @@ acPlastRedirect::acPlastRedirect(const double F_MAX,
     BOUNDARY_THRESHOLD_=BOUNDARY_THRESHOLD;
 }
 
-//-----------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // FORCE GENERATION FOLLOWING THE EQUATIONS DESCRIBED IN THE
 // CORRESPONDING PAPER
-//-----------------------------------------------------------------------
+//------------------------------------------------------------------------------
 void acPlastRedirect::getForce(KDL::Vector &f_out,
                                const KDL::Vector p_tool,
                                const KDL::Vector p_desired,
@@ -166,7 +168,8 @@ void acPlastRedirect::getForce(KDL::Vector &f_out,
     KDL::Vector nn = n;
     normalizeSafe(nn, KDL::Vector(0.0,0.0,0.0));
 
-    KDL::Vector y = cos(theta)*penet + sin(theta)*(nn*penet) + (1-cos(theta))*dot(nn,penet)*nn;
+    KDL::Vector y = cos(theta)*penet + sin(theta)*(nn*penet) +
+            (1-cos(theta))*dot(nn,penet)*nn;
     KDL::Vector yn = y;
     normalizeSafe(yn, KDL::Vector(0.0,0.0,0.0));
 
@@ -176,8 +179,10 @@ void acPlastRedirect::getForce(KDL::Vector &f_out,
         z_ = zcss*zn;
     else
     {
-        if ( dot(z_,yn) <= 0.0 ) z_ = KDL::Vector(0.0,0.0,0.0);
-        else if ( (0.0 < dot(z_,yn)) && (dot(z_,yn) < zcss) ) z_ = dot(z_,yn)*yn;
+        if ( dot(z_,yn) <= 0.0 )
+            z_ = KDL::Vector(0.0,0.0,0.0);
+        else if ( (0.0 < dot(z_,yn)) && (dot(z_,yn) < zcss) )
+            z_ = dot(z_,yn)*yn;
         else z_ = zcss * yn;
     }
 
@@ -187,12 +192,12 @@ void acPlastRedirect::getForce(KDL::Vector &f_out,
 
 
 
-//-----------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // VISCOUSE WITH REDIRECTION - INTRODUCED BY ENAYATI ET AL. 2016
-//-----------------------------------------------------------------------
-//-----------------------------------------------------------------------
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Constructor
-//-----------------------------------------------------------------------
+//------------------------------------------------------------------------------
 acViscousRedirect::acViscousRedirect(double F_MAX_in,
                                      double B_MAX_in,
                                      double BOUNDARY_THRESHOLD_in){
@@ -201,17 +206,16 @@ acViscousRedirect::acViscousRedirect(double F_MAX_in,
     B_MAX_ = B_MAX_in;
     BOUNDARY_THRESHOLD_ = BOUNDARY_THRESHOLD_in;
 
-
     v_dir_last_ = KDL::Vector(1.0,0.0,0.0);
     f_dir_last_ = KDL::Vector(1.0,0.0,0.0);
     n_2_last_   = KDL::Vector(1.0,0.0,0.0);
 
 }
 
-//-----------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // FORCE GENERATION FOLLOWING THE EQUATIONS DESCRIBED IN THE
 // CORRESPONDING PAPER
-//-----------------------------------------------------------------------
+//------------------------------------------------------------------------------
 
 void acViscousRedirect::getForce(KDL::Vector &f_out,
                                  const KDL::Vector p_tool,
@@ -236,7 +240,8 @@ void acViscousRedirect::getForce(KDL::Vector &f_out,
     double V_PENET_DOTP = dot(v_tool_dir, penet_dir);
     double PENET =penet.Norm();
 
-    // limit the viscous coefficient around the boundary to minimize the oscillation
+    // limit the viscous coefficient around the boundary to minimize
+    // the oscillation
     if (PENET< BOUNDARY_THRESHOLD_){
         B_M =  B_MAX_ * PENET/ BOUNDARY_THRESHOLD_;
     }
@@ -244,12 +249,12 @@ void acViscousRedirect::getForce(KDL::Vector &f_out,
         B_M = B_MAX_;
 
     // calculate the magnitude of the ac force
-//	F_VC = B_M * sqrt( ( 1 - V_PENET_DOTP ) / 2 ) * v_msrd.Norm();
     F_VC = B_M * sqrt( ( 1 - V_PENET_DOTP ) / 2 ) * v_msrd.Norm();
-    // saturate the magnitude of the ac force
-    F_VC_SAT = saturate(0.0, F_VC , F_MAX_ );
 
-    //-----------------------------------------------------------------------
+    // saturate the magnitude of the ac force
+    F_VC_SAT = SATURATE(0.0, F_VC , F_MAX_ );
+
+    //--------------------------------------------------------------------------
     // calculate the direction of the AC force
     KDL::Vector n = v_tool_dir * penet_dir;
     KDL::Vector nn = n;
@@ -264,7 +269,7 @@ void acViscousRedirect::getForce(KDL::Vector &f_out,
         std::cout << "Null in rotateVector." <<"  norm(v_tool_dir) = "<< v_tool_dir.Norm()<<
                   "  , norm(nn) = "<< nn.Norm() << std::endl;
 
-    //-----------------------------------------------------------------------
+    //--------------------------------------------------------------------------
     // Make the force vector from the calculated magnitude and direction
     f_out = F_VC_SAT * f_dir;
 
@@ -275,12 +280,12 @@ void acViscousRedirect::getForce(KDL::Vector &f_out,
 
 
 
-//-----------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // SIMPLE ELASTIC WITH DAMPING
-//-----------------------------------------------------------------------
-//-----------------------------------------------------------------------
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Constructor
-//-----------------------------------------------------------------------
+//------------------------------------------------------------------------------
 acElastic::acElastic(const double F_MAX,
                      const double TAW_MAX,
                      const double k,
@@ -294,14 +299,13 @@ acElastic::acElastic(const double F_MAX,
     b_ = b;
     kappa_ = kappa;
     c_ = c;
-//    penet_vel_ = 0;
 
 };
 
 
-//-----------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // FORCE GENERATION
-//-----------------------------------------------------------------------
+//------------------------------------------------------------------------------
 void acElastic::getForce(KDL::Vector &f_out,
                          const KDL::Vector p_tool,
                          const KDL::Vector p_desired,
@@ -326,9 +330,9 @@ void acElastic::getForce(KDL::Vector &f_out,
 }
 
 
-//-----------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // FORCE TORQUE
-//-----------------------------------------------------------------------
+//------------------------------------------------------------------------------
 void acElastic::getTorque(KDL::Vector &taw_out,
                           const KDL::Rotation rot_current,
                           const KDL::Rotation rot_desired,
@@ -353,14 +357,26 @@ void acElastic::getTorque(KDL::Vector &taw_out,
 
 }
 
+//------------------------------------------------------------------------------
+void acElastic::SetActivation(const double activation) {
+
+    // ensure the normality
+    SATURATE(0., activation, 1.);
+
+    F_MAX_ *=   activation;
+    TAW_MAX_ *= activation;
+
+    // scaling the magnitude of the params by inspection
+    k_ *=       (0.1 + 0.9*activation);
+    b_ *=       (0.3 + 0.7*activation);
+    kappa_ *=   (0.1 + 0.9*activation);
+    c_ *=       (0.3 + 0.7*activation);
+
+}
 
 
-
-//##############################################################################
-// #############################################################################
-// #################       COMMON FUNCTIONS         ############################
-// #############################################################################
-//##############################################################################
+//------------------------------------------------------------------------------
+//      COMMON FUNCTIONS
 
 int toolbox::rotateVector(const KDL::Vector vector_in,
                           KDL::Vector &vector_out,
@@ -376,6 +392,8 @@ int toolbox::rotateVector(const KDL::Vector vector_in,
         return 0;
     }
 }
+
+//------------------------------------------------------------------------------
 int toolbox::normalizeSafe(KDL::Vector & vec_in,
                            const KDL::Vector vec_safe) {
 
@@ -395,21 +413,7 @@ int toolbox::normalizeSafe(KDL::Vector & vec_in,
     }
 }
 
-double toolbox::saturate (double a,
-                          double x,
-                          double b){
-
-    if (x < a){
-        return a;
-    }
-    else if (x >b){
-        return b;
-    }
-    else
-        return x;
-
-}
-
+//------------------------------------------------------------------------------
 KDL::Vector toolbox::saturate_vec(KDL::Vector x,
                                   double a){
 

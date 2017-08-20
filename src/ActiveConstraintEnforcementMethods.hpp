@@ -48,6 +48,8 @@
 #include <limits>
 #include <kdl/frames.hpp>
 
+#define SATURATE(a, x, b) ((x <= a) ? a : ( (x>=b) ? b : x) )
+
 //==============================================================================
 /*!
     \file       acMethods.hpp
@@ -70,6 +72,10 @@
 	the desired position (where the tool should go, e.g. closest point on the
 	reference path). For a detailed description and comparison of these methods
 	please refer to Enayati et al. 2016 [FIX]
+
+     //! Setting activation is used to change the magnitude of the constraint
+    //! in a normalized way. each constraint should map the activation value
+    //! properly to its parameters
 */
 //==============================================================================
 
@@ -81,7 +87,6 @@ class ac{
 
 public:
 
-    //! virtual destructor
     virtual ~ac(){}
 
     //! pure virtual function for the calculation of the force.
@@ -92,10 +97,15 @@ public:
     virtual void getTorque(KDL::Vector &t_out,  const KDL::Rotation rot_current,
                    const KDL::Rotation rot_desired, const KDL::Vector rot_vel) = 0;
 
+    //! Setting activation is used to change the magnitude of the constraint
+    //! in a normalized way. each constraint should map the activation value
+    //! properly to its parameters
+    virtual void SetActivation(const double activation) = 0;
+
     //! Sets the maximum force of the constraint method
     void setFmax(double in){F_MAX_=in;}
 
-    //! Sets the boundary threshold  (if applicable) of the constraint method
+        //! Sets the boundary threshold  (if applicable) of the constraint method
     void setBoundaryThreshold(double in){BOUNDARY_THRESHOLD_=in;}
 
     //! Sets the elastic length (if applicable)  of the constraint method
@@ -131,6 +141,8 @@ public:
 
     void getTorque(KDL::Vector &t_out,  const KDL::Rotation rot_current,
                            const KDL::Rotation rot_desired, const KDL::Vector rot_vel) {};
+    virtual void SetActivation(const double activation){};
+
 private:
     // internal variable the method needs to keep a track of
     KDL::Vector p_tool_last_;
@@ -155,6 +167,8 @@ public:
 
     void getTorque(KDL::Vector &t_out,  const KDL::Rotation rot_current,
                    const KDL::Rotation rot_desired, const KDL::Vector rot_vel) {};
+    virtual void SetActivation(const double activation){};
+
 private:
     // internal variable the method needs to keep a track of
     KDL::Vector p_tool_last_;
@@ -179,6 +193,8 @@ public:
 
     void getTorque(KDL::Vector &t_out,  const KDL::Rotation rot_current,
                    const KDL::Rotation rot_desired, const KDL::Vector rot_vel) {};
+
+    virtual void SetActivation(const double activation){};
 
     void setMaxViscousity(double in){B_MAX_=in;}
 
@@ -211,15 +227,11 @@ public:
     //! calculate a torsion elastic torque given a desired rotation
     void getTorque(KDL::Vector &t_out,  const KDL::Rotation rot_current,
                               const KDL::Rotation rot_desired, const KDL::Vector rot_vel);
-    //!
+    //! modify the constraint parameters at run time.
     void setParameters(
-    const double f_max,
-    const double taw_max,
-    const double k,
-    const double b,
-    const double kappa,
-    const double c
-) {
+    const double f_max, const double taw_max,
+    const double k, const double b,
+    const double kappa, const double c) {
         F_MAX_ = f_max;
         TAW_MAX_ = taw_max;
         k_ = k;
@@ -227,6 +239,11 @@ public:
         kappa_ = kappa;
         c_ = c;
     }
+
+    //! Here we map the activation by scaling down the Force and TOrque
+    //! maximum values. In addition the constraint coefficients are scaled
+    //! but with half the ratio.
+    void SetActivation(const double activation);
 
 private:
     //! elasticity and viscosity coefficients
@@ -241,13 +258,13 @@ private:
     //    double penet_vel_;
 
 };
-//-----------------------------------------------------------------------
-//-----------------------------------------------------------------------
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 
 
-//-----------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // TOOLBOX FUNCTIONS - SHARED BETWEEN CLASSES
-//-----------------------------------------------------------------------
+//------------------------------------------------------------------------------
 
 namespace toolbox{
 
@@ -257,15 +274,10 @@ namespace toolbox{
 //! This function normalizes vec_in and if the norm is zero, it instead outputs vec_safe
     int normalizeSafe(KDL::Vector & vec_in, const KDL::Vector vec_safe);
 
-//! This function limits the value of x to the set [a,b]
-    double saturate (double a, double x, double b);
-
 //! This function limits the norm of the vector x to a maximum of a
     KDL::Vector saturate_vec(KDL::Vector x, double a);
 
-
 }
-
 
 
 #endif /* SRC_ACMETHODS_HPP_ */
