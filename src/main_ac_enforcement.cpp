@@ -40,7 +40,7 @@ void shutdownCallback(XmlRpc::XmlRpcValue& params, XmlRpc::XmlRpcValue& result)
 int main(int argc, char *argv[]) {
 
 
-	/////////////////////////
+    /////////////////////////
     // Override SIGINT handler
 
     ros::init(argc, argv, "dvrk_ac_enforce", ros::init_options::NoSigintHandler);
@@ -50,59 +50,39 @@ int main(int argc, char *argv[]) {
     ros::XMLRPCManager::instance()->unbind("shutdown");
     ros::XMLRPCManager::instance()->bind("shutdown", shutdownCallback);
 
-	ACEnforcement r(ros::this_node::getName());
-
-    KDL::Wrench wrench_out[2];
+    ACEnforcement r(ros::this_node::getName());
 
     // the forces are published only when new desired poses are arrived.
     // so the frequency of the published forces is equal to the frequency
     // of the desired pose topic
     // loop_rate is the frequency of spinning and checking for new messages
-    ros::Rate loop_rate(500);
+    ros::Rate loop_rate(1000);
 
     r.StartTeleop();
-
-	ros::spinOnce();
+    ros::spinOnce();
 
     while(!g_request_shutdown){
 
-        for (int k = 0; k < r.n_arms; ++k) {
+        r.LoopEnforcement();
 
-            if(r.IsDesiredPoseNew(k)) {
+        loop_rate.sleep();
+        ros::spinOnce();
 
-                // Generate non-zero wrenches when:
-                // 1- coag foot switch is pressed (master/slave are coupled)
-                // 2- and clutch is not pressed (to move master while slave is fixed)
-                // 3- and if we are told that active constraint should be active
-                if (r.coag_pressed && !r.clutch_pressed  && r.ac_params[k].active)
-                    wrench_out[k] = r.GetWrench(k);
-                else
-                    KDL::SetToZero(wrench_out[k]);
+    }
 
-                if (r.IsPublishingAllowed() && r.master_state[k] == "DVRK_EFFORT_CARTESIAN")
-                    r.PublishWrenchInSlaveFrame(k, wrench_out[k]);
-
-            } // if(new_desired_pose_msg[k])
-        } // for
-
-		loop_rate.sleep();
-		ros::spinOnce();
-
-	}
-
-	loop_rate.sleep();
+    loop_rate.sleep();
 
     ROS_INFO("Setting wrenches to zero...");
     r.PublishWrenchInSlaveFrame(0, KDL::Wrench());
 
-	loop_rate.sleep();
+    loop_rate.sleep();
 
     //    ROS_INFO("Turning dvrk off...");
     //    std_msgs::Empty empty;
     //    r.pub_dvrk_power_off.publish(empty);
 
-	ROS_INFO("Ending Session...\n");
-	ros::shutdown();
+    ROS_INFO("Ending Session...\n");
+    ros::shutdown();
 
     return 0;
 }

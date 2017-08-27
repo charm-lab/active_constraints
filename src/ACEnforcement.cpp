@@ -441,6 +441,11 @@ void ACEnforcement::ACParams0Callback(
             ac_params[0].angular_elastic_coeff,
             ac_params[0].angular_damping_coeff
         );
+        // may change the parameters that were just set
+        ac_elastic[0]->SetActivation(ac_params[0].activation);
+        ROS_INFO("Setting ac activation of arm 0 to %f", ac_params[0]
+            .activation);
+
     }
 }
 
@@ -470,6 +475,9 @@ void ACEnforcement::ACParams1Callback(
             ac_params[1].angular_elastic_coeff,
             ac_params[1].angular_damping_coeff
         );
+        ac_elastic[1]->SetActivation(ac_params[1].activation);
+        ROS_INFO("Setting ac activation of arm 0 to %f", ac_params[1]
+            .activation);
     }
 
 }
@@ -688,6 +696,29 @@ KDL::Wrench ACEnforcement::GetWrench(const int arm_number) {
     return wrench_out;
 }
 
+void ACEnforcement::LoopEnforcement() {
+
+    for (int k = 0; k < n_arms; ++k) {
+
+        if(IsDesiredPoseNew(k)) {
+
+            // Generate non-zero wrenches when:
+            // 1- coag foot switch is pressed (master/slave are coupled)
+            // 2- and clutch is not pressed (to move master while slave is fixed)
+            // 3- and if we are told that active constraint should be active
+            //if (coag_pressed && !clutch_pressed  && ac_params[k].active)
+            if (coag_pressed && !clutch_pressed  && ac_params[k].activation>0.0)
+                wrench_out[k] = GetWrench(k);
+            else
+                KDL::SetToZero(wrench_out[k]);
+
+            if (IsPublishingAllowed() && master_state[k] == "DVRK_EFFORT_CARTESIAN")
+                PublishWrenchInSlaveFrame(k, wrench_out[k]);
+
+        } // if(new_desired_pose_msg[k])
+    } // for
+
+}
 
 //------------------------------------------------------------------------------
 void conversions::VectorToPoseMsg(const std::vector<double> in_vec,

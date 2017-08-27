@@ -59,6 +59,8 @@ public:
     **/
     void StartTeleop();
 
+    void LoopEnforcement();
+
 public:
 
     /**
@@ -94,13 +96,6 @@ public:
     KDL::Wrench GetWrench(const int arm_number);
 
 public:
-
-    int n_arms;
-
-    std::string master_state[2];
-    bool coag_pressed;
-    bool clutch_pressed;
-    bool new_clutch_event;
 
     custom_msgs::ActiveConstraintParameters ac_params[2];
 
@@ -173,6 +168,14 @@ private:
     double do_foaw_sample(double *posbuf, int size, int *k,
                           double current_pos, int best, const double noise);
 private:
+
+    int n_arms;
+    KDL::Wrench wrench_out[2];
+
+    std::string master_state[2];
+    bool coag_pressed;
+    bool clutch_pressed;
+    bool new_clutch_event;
 
     acElastic * ac_elastic[2];
     acPlast *  ac_plast[2];
