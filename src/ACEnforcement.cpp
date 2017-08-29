@@ -476,7 +476,7 @@ void ACEnforcement::ACParams1Callback(
             ac_params[1].angular_damping_coeff
         );
         ac_elastic[1]->SetActivation(ac_params[1].activation);
-        ROS_INFO("Setting ac activation of arm 0 to %f", ac_params[1]
+        ROS_INFO("Setting ac activation of arm 1 to %f", ac_params[1]
             .activation);
     }
 
