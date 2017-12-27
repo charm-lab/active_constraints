@@ -163,7 +163,7 @@ void ACEnforcement::SetupROSCommunications() {
         param_name << std::string("/dvrk/") << master_names[n_arm]
                    << "/twist_body_current";
         subscriber_slaves_current_twist[n_arm] = n.subscribe(param_name.str()
-            ,1, master_twist_callback[n_arm], this);
+                ,1, master_twist_callback[n_arm], this);
         ROS_INFO("[SUBSCRIBERS] Will subscribe to %s",
                  param_name.str().c_str());
 
@@ -207,7 +207,7 @@ void ACEnforcement::SetupROSCommunications() {
         param_name <<  std::string("/atar/")
                    << master_names[n_arm] <<"/twist_filtered";
         pub_twist_filt[n_arm] = n.advertise<geometry_msgs::Twist>(
-            param_name.str().c_str(), 1);
+                param_name.str().c_str(), 1);
         ROS_INFO("Will publish on %s", param_name.str().c_str());
     }
 
@@ -304,17 +304,17 @@ void ACEnforcement::Master0PoseCurrentCallback(
     double r, p, y;
     master_pose_current[0].M.GetRPY(r, p, y);
 
-    master_twist_filt[0].vel[0] = do_foaw_sample(foaw_position_buffer[0][0],
+    master_twist_filt[0].vel[0] = calculate_velocity_foaw(foaw_position_buffer[0][0],
                                                  foaw_n, &foaw_i[0][0],
-                                                 master_pose_current[0].p[0], 1,
+                                                 master_pose_current[0].p[0],
                                                  0.001);
-    master_twist_filt[0].vel[1] = do_foaw_sample(foaw_position_buffer[0][1],
+    master_twist_filt[0].vel[1] = calculate_velocity_foaw(foaw_position_buffer[0][1],
                                                  foaw_n, &foaw_i[0][1],
-                                                 master_pose_current[0].p[1], 1,
+                                                 master_pose_current[0].p[1],
                                                  0.001);
-    master_twist_filt[0].vel[2] = do_foaw_sample(foaw_position_buffer[0][2],
+    master_twist_filt[0].vel[2] = calculate_velocity_foaw(foaw_position_buffer[0][2],
                                                  foaw_n, &foaw_i[0][2],
-                                                 master_pose_current[0].p[2], 1,
+                                                 master_pose_current[0].p[2],
                                                  0.001);
 
     // just averaging the angular velocity
@@ -344,17 +344,17 @@ void ACEnforcement::Master1PoseCurrentCallback(
     double r, p, y;
     master_pose_current[1].M.GetRPY(r, p, y);
 
-    master_twist_filt[1].vel[0] = do_foaw_sample(foaw_position_buffer[1][0],
+    master_twist_filt[1].vel[0] = calculate_velocity_foaw(foaw_position_buffer[1][0],
                                                  foaw_n, &foaw_i[1][0],
-                                                 master_pose_current[1].p[0], 1,
+                                                 master_pose_current[1].p[0],
                                                  0.001);
-    master_twist_filt[1].vel[1] = do_foaw_sample(foaw_position_buffer[1][1],
+    master_twist_filt[1].vel[1] = calculate_velocity_foaw(foaw_position_buffer[1][1],
                                                  foaw_n, &foaw_i[1][1],
-                                                 master_pose_current[1].p[1], 1,
+                                                 master_pose_current[1].p[1],
                                                  0.001);
-    master_twist_filt[1].vel[2] = do_foaw_sample(foaw_position_buffer[1][2],
+    master_twist_filt[1].vel[2] = calculate_velocity_foaw(foaw_position_buffer[1][2],
                                                  foaw_n, &foaw_i[1][2],
-                                                 master_pose_current[1].p[2], 1,
+                                                 master_pose_current[1].p[2],
                                                  0.001);
 
     // just averaging the angular velocity
@@ -434,17 +434,17 @@ void ACEnforcement::ACParams0Callback(
     // will add params for other methods too
     if (ac_params[0].method == 0) {
         ac_elastic[0]->setParameters(
-            ac_params[0].max_force,
-            ac_params[0].max_torque,
-            ac_params[0].linear_elastic_coeff,
-            ac_params[0].linear_damping_coeff,
-            ac_params[0].angular_elastic_coeff,
-            ac_params[0].angular_damping_coeff
+                ac_params[0].max_force,
+                ac_params[0].max_torque,
+                ac_params[0].linear_elastic_coeff,
+                ac_params[0].linear_damping_coeff,
+                ac_params[0].angular_elastic_coeff,
+                ac_params[0].angular_damping_coeff
         );
         // may change the parameters that were just set
         ac_elastic[0]->SetActivation(ac_params[0].activation);
         ROS_INFO("Setting ac activation of arm 0 to %f", ac_params[0]
-            .activation);
+                .activation);
 
     }
 }
@@ -468,16 +468,16 @@ void ACEnforcement::ACParams1Callback(
     // will add params for other methods too
     if (ac_params[1].method == 0) {
         ac_elastic[1]->setParameters(
-            ac_params[1].max_force,
-            ac_params[1].max_torque,
-            ac_params[1].linear_elastic_coeff,
-            ac_params[1].linear_damping_coeff,
-            ac_params[1].angular_elastic_coeff,
-            ac_params[1].angular_damping_coeff
+                ac_params[1].max_force,
+                ac_params[1].max_torque,
+                ac_params[1].linear_elastic_coeff,
+                ac_params[1].linear_damping_coeff,
+                ac_params[1].angular_elastic_coeff,
+                ac_params[1].angular_damping_coeff
         );
         ac_elastic[1]->SetActivation(ac_params[1].activation);
         ROS_INFO("Setting ac activation of arm 1 to %f", ac_params[1]
-            .activation);
+                .activation);
     }
 
 }
@@ -569,41 +569,35 @@ void ACEnforcement::StartTeleop() {
             (wrench_body_orientation_absolute);
     if(n_arms==2)
         publisher_wrench_body_orientation_absolute[1].publish
-            (wrench_body_orientation_absolute);
+                (wrench_body_orientation_absolute);
 
 }
 
 
 //------------------------------------------------------------------------------
-double ACEnforcement::do_foaw_sample(double *posbuf, int size, int *k,
-                                     double current_pos, int best,
-                                     const double noise_max) {
+double ACEnforcement::calculate_velocity_foaw(double *pos_buf, int size, int *k,
+                                     double current_pos, const double d) {
     int i, j, l, bad;
     double b, ykj;
     double velocity = 0;
     double T = 1 / filtering_frequency;
 
-
-    /* circular buffer */
+    // circular buffer
     *k = (*k + 1) % size;
-    posbuf[*k] = current_pos;
+    pos_buf[*k] = current_pos;
 
     for (i = 1; i < size; i++) {
-        if (best) {
-            // best-fit-FOAW
-            b = 0;
-            for (l = 0; l < (i + 1); l++)
-                b += i * posbuf[(*k - l + size) % size]
-                     - 2 * posbuf[(*k - l + size) % size] * l;
-            b = b / (T * i * (i + 1) * (i + 2) / 6);
-        } else
-            // end-fit-FOAW
-            b = (posbuf[*k] - posbuf[(*k - i + size) % size]) / (i * T);
+        b = 0;
+        for (l = 0; l < (i + 1); l++)
+            b += i * pos_buf[(*k - l + size) % size]
+                 - 2 * pos_buf[(*k - l + size) % size] * l;
+        b = b / (T * i * (i + 1) * (i + 2) / 6);
+
         bad = 0;
         for (j = 1; j < i; j++) {
-            ykj = posbuf[*k] - (b * j * T);
-            if ((ykj < (posbuf[(*k - j + size) % size] - noise_max))
-                || (ykj > (posbuf[(*k - j + size) % size] + noise_max))) {
+            ykj = pos_buf[*k] - (b * j * T);
+            if ((ykj < (pos_buf[(*k - j + size) % size] - d))
+                || (ykj > (pos_buf[(*k - j + size) % size] + d))) {
                 bad = 1;
                 break;
             }

@@ -1,7 +1,7 @@
 //==============================================================================
 /*
     Software License Agreement (BSD License)
-    Copyright (c) 2016, Nearlab
+    Copyright (c) 2016, Nima Enayati
 
 
     All rights reserved.
