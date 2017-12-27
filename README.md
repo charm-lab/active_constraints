@@ -1,16 +1,16 @@
-# Dynamic non-energy-storing active constraints for position guidance.
+# Wrench generation package for active constraints 
 
 This package contains a ros node that generates wrenches (forces + torques) 
 based on the current position of a tool and its desired one. Torques are 
 generated as a simple visco-elastic function of the orientation. To generate 
 forces 4 methods are available: a visco-elastic method and three 
-non-energy-storing force generation methods. For a description of these 
+_non-energy-storing_ force generation methods. For a description of these 
 methods and discussions on their behavior please refer to:
 
 _"N. Enayati, E. C. Alves Costa, G. Ferrigno, and E. De Momi, “A Dynamic 
 Non-Energy-Storing Guidance Constraint with Motion Redirection for 
 Robot-Assisted Surgery,” in IEEE/RSJ International Conference on Intelligent 
-Robots and Systems, IROS, 2016"_ros
+Robots and Systems, IROS, 2016"_  
 
 If this package turns out to be useful to you, please cite the above paper in
 your works.
