@@ -165,8 +165,8 @@ private:
     void (ACEnforcement::*ac_params_callback[2])
             (const custom_msgs::ActiveConstraintParametersConstPtr &msg);
 
-    double calculate_velocity_foaw(double *posbuf, int size, int *k,
-                          double current_pos, const double noise);
+    double do_foaw_sample(double *posbuf, int size, int *k,
+                          double current_pos, int best, const double noise);
 private:
 
     int n_arms;

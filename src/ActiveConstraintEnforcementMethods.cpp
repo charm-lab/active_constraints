@@ -1,7 +1,7 @@
 //==============================================================================
 /*
     Software License Agreement (BSD License)
-    Copyright (c) 2016, Nima Enayati
+    Copyright (c) 2016, Nearlab
 
 
     All rights reserved.
@@ -44,6 +44,7 @@
 //------------------------------------------------------------------------------
 
 #include "ActiveConstraintEnforcementMethods.hpp"
+#include <ros/ros.h>
 
 using namespace toolbox;
 
@@ -360,17 +361,45 @@ void acElastic::getTorque(KDL::Vector &taw_out,
 //------------------------------------------------------------------------------
 void acElastic::SetActivation(const double activation) {
 
-    // ensure the normality
-    SATURATE(0., activation, 1.);
+   ROS_INFO("activation is  %lf", activation);
 
-    F_MAX_ *=   activation;
-    TAW_MAX_ *= activation;
+    double activation_copy = activation;
+    if (activation_copy < -1.0) 
+	activation_copy = -1.0;
+ 
+    if (activation_copy > 1.0) 
+	activation_copy = 1.0;
+
+    // ensure the normality
+    //SATURATE(0., activation, 1.);
+
+   double activation_mult = activation_copy;
+   if (activation_copy < 0.0)
+	activation_mult *= -1 ;
+
+   //ROS_INFO("activation_copy is  %lf", test);
+     
+    F_MAX_ *=   activation_mult;
+    TAW_MAX_ *= activation_mult;
 
     // scaling the magnitude of the params by inspection
-    k_ *=       (0.1 + 0.9*activation);
-    b_ *=       (0.3 + 0.7*activation);
-    kappa_ *=   (0.1 + 0.9*activation);
-    c_ *=       (0.3 + 0.7*activation);
+    k_ *=       (0.1 + 0.9*activation_mult);
+    b_ *=       (0.3 + 0.7*activation_mult);
+    kappa_ *=   (0.1 + 0.9*activation_mult);
+    c_ *=       (0.3 + 0.7*activation_mult);
+
+   
+    //ROS_INFO("divergent is  %lf", divergent);
+    //ROS_INFO("activation is  %lf", activation);
+    //ROS_INFO("activation after is  %lf", activation);
+
+    if (activation_copy < 0.0){
+    	k_ *= -1 ;
+    	kappa_ *= -1  ;
+    } 
+
+   ROS_INFO("k is  %lf", k_);
+   ROS_INFO("kappa is  %lf", kappa_); 
 
 }
 

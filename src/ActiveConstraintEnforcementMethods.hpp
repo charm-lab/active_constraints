@@ -47,6 +47,7 @@
 #include <iostream>
 #include <limits>
 #include <kdl/frames.hpp>
+#include "ros/ros.h"
 
 #define SATURATE(a, x, b) ((x <= a) ? a : ( (x>=b) ? b : x) )
 
