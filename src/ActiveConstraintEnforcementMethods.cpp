@@ -294,6 +294,7 @@ acElastic::acElastic(const double F_MAX,
                      const double kappa,
                      const double c)
 {
+
     F_MAX_ = F_MAX;
     TAW_MAX_ = TAW_MAX;
     k_ = k;
@@ -370,6 +371,7 @@ void acElastic::SetActivation(const double activation) {
     if (activation_copy > 1.0) 
 	activation_copy = 1.0;
 
+
     // ensure the normality
     //SATURATE(0., activation, 1.);
 
@@ -396,9 +398,10 @@ void acElastic::SetActivation(const double activation) {
     if (activation_copy < 0.0){
     	k_ *= -1 ;
     	kappa_ *= -1  ;
-    } 
+    }
 
-   ROS_INFO("k is  %lf", k_);
+
+    ROS_INFO("k is  %lf", k_);
    ROS_INFO("kappa is  %lf", kappa_); 
 
 }
